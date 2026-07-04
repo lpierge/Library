@@ -1,24 +1,25 @@
 /*$
 	algorithm.c
-	Algoritmi.
+	Algoritmi vari.
 	Luca Piergentili, Luglio '25
-
-	Vedi le note in algoritm.h
 */
 #include "pragma.h"
+#include "env.h"
+#include "macro.h"
 #include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <limits.h>
 #include <time.h>
-#include <intrin.h>  // required for __rdtsc() on MSVC
-#include "datetime.h"
+#include "fastrand.h"
 #include "algorithm.h"
 
 #include "traceexpr.h"
+//#define _TRACE_FLAG			_TRFLAG_TRACEOUTPUT // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
 #define _TRACE_FLAG			_TRFLAG_NOTRACE // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
 #define _TRACE_FLAG_INFO	_TRACE_FLAG
 #define _TRACE_FLAG_WARN	_TRACE_FLAG
@@ -26,9 +27,6 @@
 
 /* prototipi interne */
 static void count_digits(const char* str_sequence,int counts[10]);
-
-#include <stdio.h>
-#include <stdbool.h>
 
 /*
 	swing()
@@ -47,31 +45,31 @@ static void count_digits(const char* str_sequence,int counts[10]);
  */
 bool swing(int *value,int min,int max,int dec,int inc,bool *status)
 {
-	// controlla se entro i limiti
+	/* controlla se entro i limiti */
 	if(*value <= min || *value >= max)
 		return(false);
     
-	// decremento
+	/* decremento */
 	if(*status)
 	{
 		if(*value - dec > min)
 		{
 			*value -= dec;
 		}
-		else // passa a incremento
+		else /* passa a incremento */
 		{
 			*status = false;
 			*value += inc;
 		}
 	} 
-	// incremento
+	/* incremento */
 	else
 	{
 		if(*value + inc < max)
 		{
 			*value += inc;
 		}
-		else // passa a decremento
+		else /* passa a decremento */
 		{
 			*status = true;
 			*value -= dec;
@@ -89,17 +87,16 @@ bool swing(int *value,int min,int max,int dec,int inc,bool *status)
 */
 bool get_weighted_boolean(int nThreshold)
 {
-	// se la soglia e' 0, e' sempre falso; se e' 100, e' sempre vero
+	/* se la soglia e' 0, e' sempre falso; se e' 100, e' sempre vero */
 	if(nThreshold <= 0)
 		return(false);
 	if(nThreshold >= 100)
 		return(true);
 
-	// generia 100 valori possibili
+	/* genera 100 valori possibili */
 	int nRandomNumber = rand_w(1,100);
 
-	// se nThreshold e' 10, i numeri da 1 a 10 (esattamente 10 numeri) 
-	// restituiranno TRUE -> 10/100 = 10% esatto
+	/* se nThreshold e' 10, i numeri da 1 a 10 (esattamente 10 numeri) restituiranno TRUE -> 10/100 = 10% esatto */
 	return(nRandomNumber <= nThreshold);
 }
 
@@ -116,6 +113,10 @@ bool get_weighted_boolean(int nThreshold)
 	Dato che usa combinazioni numeriche per comporre le stringhe di validazione, ovviamente una
 	stringa di validazione non potra' avere piu' di 10 caratteri (da 0 a 9).
 
+	Esempio uso pratico:
+	Invece di controllare la compatibilita' incrociata delle varie opzioni dalla linea di comando,
+	definisce le sequenze di opzioni valide e le confronta con quanto riceve in input.
+
 	In input:
 	- l'array di stringhe (char*) che contiene le serie casuali
 	- la dimensione dell'array
@@ -126,7 +127,7 @@ bool multiset_equality_check(const char* array_of_sequences[],int array_size,con
 	int target_len;
 
 	/* lunghezza della serie da cercare */
-	if((target_len = strlen(target_sequence))==0)
+	if((target_len = (int)strlen(target_sequence))==0)
 		return(false);
     
 	int target_counts[10] = {0}; /* contatori per la serie da cercare */
@@ -135,8 +136,8 @@ bool multiset_equality_check(const char* array_of_sequences[],int array_size,con
 	/* itera attraverso ogni elemento dell'array di stringhe */
 	for(int i = 0; i < array_size; i++)
 	{
-		const char* current_array_sequence_str = array_of_sequences[i];	// ottiene la stringa dall'array */
-		int current_len = strlen(current_array_sequence_str);
+		const char* current_array_sequence_str = array_of_sequences[i];	/* ottiene la stringa dall'array */
+		int current_len = (int)strlen(current_array_sequence_str);
 
 		/* se le lunghezze non coincidono, per definizione non e' un match */
 		if(current_len!=target_len)
@@ -195,13 +196,13 @@ void count_digits(const char* str_sequence,int counts[10])
 */
 int linear_map(int inputVal,int outMin,int outMax)
 {
-	// trasforma l'input (0-100) in una frazione tra 0.0 e 1.0
+	/* trasforma l'input (0-100) in una frazione tra 0.0 e 1.0 */
 	double normalized = (double)inputVal / 100.0;
 
-	// calcola l'ampiezza del range di destinazione (puo' essere negativo)
+	/* calcola l'ampiezza del range di destinazione (puo' essere negativo) */
 	double span = (double)outMax - (double)outMin;
 
-	// applica la frazione allo span e trasla il punto di partenza
+	/* applica la frazione allo span e trasla il punto di partenza */
 	double result = (double)outMin + (normalized * span);
 
 	return((int)result);
@@ -222,7 +223,7 @@ int linear_map(int inputVal,int outMin,int outMax)
 */
 uint64_t hash_string_FNV1a(const char* str)
 {
-	// numeri "magici" per FNV-1a 64-bit
+	/* numeri "magici" per FNV-1a 64-bit */
 	const uint64_t FNV_OFFSET_BASIS = 0xcbf29ce484222325ULL;
 	const uint64_t FNV_PRIME = 0x100000001b3ULL;
 	uint64_t hash = FNV_OFFSET_BASIS;
@@ -230,7 +231,7 @@ uint64_t hash_string_FNV1a(const char* str)
 	if(!str)
 		return(0);
 
-	// processa la stringa byte per byte
+	/* processa la stringa byte per byte */
 	while(*str)
 	{
 		hash ^= (uint64_t)(unsigned char)(*str++);
@@ -252,7 +253,7 @@ uint64_t hash_string_FNV1a(const char* str)
 */
 uint64_t hash_normalized_string_FNV1a(const char* str)
 {
-	// numeri "magici" per FNV-1a 64-bit
+	/* numeri "magici" per FNV-1a 64-bit */
 	const uint64_t FNV_OFFSET_BASIS = 0xcbf29ce484222325ULL;
 	const uint64_t FNV_PRIME = 0x100000001b3ULL;
 	uint64_t hash = FNV_OFFSET_BASIS;
@@ -260,13 +261,13 @@ uint64_t hash_normalized_string_FNV1a(const char* str)
 	if(!str)
 		return(0);
 
-	// processa la stringa byte per byte
+	/* processa la stringa byte per byte */
 	while(*str)
 	{
-		// normalizza al volo: converte il carattere a minuscolo
+		/* normalizza al volo: converte il carattere a minuscolo */
 		unsigned char c = (unsigned char)tolower((unsigned char)*str++);
         
-		// ignora spazi bianchi consecutivi e punteggiatura
+		/* ignora spazi bianchi consecutivi e punteggiatura */
 		if(isspace(c) || ispunct(c))
 			continue; 
 
@@ -275,75 +276,4 @@ uint64_t hash_normalized_string_FNV1a(const char* str)
 	}
 
 	return(hash);
-}
-
-/*
-	rand_w()
-
-	Calcola e restituisce un numero random compreso (inclusivamente) nell'intervallo specificato.
-
-	Non limita a RAND_MAX i valori per gli int come fanno invece come rand() e rand_m(), per cui
-	possono essere passati e restituiti valori fino a INT_MAX.
-*/
-int rand_w(int start,int end)
-{
-	// se riceve i numeri AC/DC (ad es. invertiti)
-	if(start > end) 
-	{
-		int temp = start;
-		start = end;
-		end = temp;
-	}
-
-	return((int)fast_rand_range_between(start,end));
-}
-
-/*
-	Xorshift
-	vedi le note in algorithm.h
-*/
-
-/*
-per inizializzazione
-il cast da long long a unsigned int calcola il modulo
-(notare che UINT_MAX tipicamente vale 4294967295 (2[32] - 1), quindi modulo 4294967296 (2[32])
-se il long long e' 5.000.000.000 -> 5.000.000.000 % 4.294.967.296 (UINT_MAX+1) = 705.032.704
-
-in C il compilatore ha bisogno di sapere il valore esatto delle variabili globali o statiche nel
-momento in cui compila il codice perche' le inizializza in fase di compilazione, non in fase di 
-esecuzione, come invece fa il C++, quindi compilando come codice C, si produce l'errore C2099 
-("l'inizializzatore non e' una costante") dato che __rdtsc() e' una funzione intrinseca che legge 
-il Time Stamp Counter della CPU a runtime (NON e' una costante).
-
-questo significa che se si compila come linguaggio C, bisogna chiamare la funzione init_xorshift32()
-per inizializzare il seme, mentre se si compila come C++ non e' necessario
-*/
-#ifdef __cplusplus
-	unsigned int xorshift32_state = (unsigned int)__rdtsc();
-#else
-	unsigned int xorshift32_state = (unsigned int)196508263005;
-#endif
-
-/*
-	init_xorshift32()
-
-	Inizializza il seme per il generatore.
-
-	La chiamata e'/non e' necessaria a seconda se si compila per C o per C++, vedi le note sopra a
-	proposito della variabile dato che la variabile xorshift32_state.
-*/
-void init_xorshift32(void)
-{
-	static bool seeded = false;
-	if(!seeded)
-	{
-		/* M$: __rdtsc is used to read the processor's time-stamp counter, which counts the number of clock cycles since the last reset */
-		xorshift32_state = (unsigned int)__rdtsc();
-
-		/* altamente improbabile ma per sicurezza, dato che con 0 il generatore rimarrebbe bloccato per sempre */
-		if(xorshift32_state==0)
-			xorshift32_state = (unsigned int)unixTimeStamp();
-
-		seeded = true;
-	}
 }

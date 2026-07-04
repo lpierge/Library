@@ -7,14 +7,13 @@
 #include "pragma.h"
 #include "env.h"
 #include "macro.h"
+#include "typedef.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
 #include <ctype.h>
 #include <time.h>
-#include "strings.h"
-#include "typedef.h"
 #include "datetime.h"
 
 #include "traceexpr.h"
@@ -25,11 +24,11 @@
 #define _TRACE_FLAG_ERR		_TRACE_FLAG
 
 /*
-	unixTimeStamp()
+	unix_timestamp()
 
 	Calcola il numero di secondi trascorsi dallo UNIX Timestamp, restituendolo come long long.
 */
-long long unixTimeStamp(void)
+long long unix_timestamp(void)
 {
     time_t now = time(NULL); /* secondi dal 1970-01-01 00:00:00 UTC */
     if(now==(time_t)-1)
@@ -39,7 +38,7 @@ long long unixTimeStamp(void)
 }
 
 /*
-	unixTimeStampToDate()
+	unix_timestamp_to_date()
 
 	Converte la data impacchettata con DWORD nel formato dd/mm/yyyy hh:mm:ss.
 
@@ -49,7 +48,7 @@ long long unixTimeStamp(void)
 	UNIX Timestamp: il numero di secondi trascorsi dal 1° gennaio 1970 ore 00:00:00, denominato 
 	anche "Coordinated Universal Time" (UTC) o "Epoch Unix".
 */
-int unixTimeStampToDate(unsigned long ulValue,char *buffer,size_t size)
+int unix_timestamp_to_date(unsigned long ulValue,char *buffer,size_t size)
 {
 /*
     BYTE buffer[4];		// suponemos que la funcion de lectura del registro llena este buffer
@@ -87,7 +86,7 @@ int unixTimeStampToDate(unsigned long ulValue,char *buffer,size_t size)
     if(bytesWritten==0)
         return(0);
 	else
-		strcpyn(buffer,date,size);
+		snprintf(buffer,size,"%s",date);
 
     // para mostrar tambien la zona horaria (util para depurar UTC vs. local):
     // char timezoneString[10];
@@ -98,11 +97,11 @@ int unixTimeStampToDate(unsigned long ulValue,char *buffer,size_t size)
 }
 
 /*
-	dateToUnixTimeStamp()
+	date_to_unix_timestamp()
 
 	Converte dal formato "DD/MM/YYYY HH:MM:SS" a Unix timestamp (DWORD) vedi note sopra.
 */
-unsigned long dateToUnixTimeStamp(char *date)
+unsigned long date_to_unix_timestamp(char *date)
 {
     struct tm tm_struct = {0};
     time_t unixTimestamp = 0LL;

@@ -7,13 +7,13 @@
 #include "pragma.h"
 #include "env.h"
 #include "macro.h"
-#include <ctype.h>
+#include "typeval.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include "strings.h"
+#include <ctype.h>
 #include "window.h"
-#include "typeval.h"
 #include "getopt.h"
 
 #include "traceexpr.h"
@@ -24,12 +24,19 @@
 #define _TRACE_FLAG_ERR		_TRACE_FLAG
 
 /*
-	GetCmdParameters()
+	GetSafeCommandLine()
 
-	Per ovviare allo spazio che la shell di Win32 piazza alla fine di argv[0], ed allo stesso tempo saltare gli 
-	eventuali spazi che potrebbe contenere il nome dell'eseguibile (argv[0]) come in: "C:\Program Files\test.exe".
+	Ricava la linea di comando completa, saltando (omettendo) il nome dell'eseguibile (argv[0]).
+
+	Viene usata per ovviare allo spazio che la shell di Win32 piazza alla fine di argv[0], ed allo stesso tempo saltare
+	gli eventuali spazi che potrebbe contenere il nome dell'eseguibile (argv[0]) come in: "C:\Program Files\test.exe".
+
+	Lo spazio alla fine del nome dell'eseguibile (anche se non sono presenti parametri) viene aggiunto dalla shell per
+	compatibilita' con il vecchio PSP (Program Segment Prefix) del DOS o per puttanate varie come le utility di sistema
+	(incluso cmd.exe) che internamente hanno una logica del tipo: sprintf(buffer,"%s %s",exe,params); e se params e' una
+	stringa vuota, terminano producendo exe + spazio + NULL
 */
-char* GetCmdParameters(char* pCmdLine) 
+char* GetSafeCommandLine(char* pCmdLine)
 {
 	if(!pCmdLine)
 		return(NULL);
@@ -60,6 +67,30 @@ char* GetCmdParameters(char* pCmdLine)
 }
 
 /*
+	GetCommandLineAsString()
+
+	Concatena i parametri di *argv[] in una linea di comando unica e continua SENZA il nome dell'eseguibile (argv[0]).
+*/
+char* GetCommandLineAsString(int argc,char* argv[],char* szBuffer,size_t nBuffer)
+{
+	int i;
+	int nTot = 0;
+	for(i = 1; i < argc; i++)
+		nTot += ((int)strlen(argv[i]) + 1); /* + 1 per spazi separatori tra i parametri */
+	if(nTot > 0)
+	{
+		ASSERTEXPR(nTot < MAX_CMDLINE);
+		if(nTot >= MAX_CMDLINE)
+			return(NULL);
+
+		int n = 0;
+		for(i = 1; i < argc; i++)
+			n += wtfsnprintf(szBuffer+n,nBuffer-n,"%s%s",argv[i],i==argc-1 ? "" : " ");
+	}
+	return(szBuffer);
+}
+
+/*
 	getopt()
 	
 	Carica le opzioni/argomenti presenti sulla linea di comando.
@@ -87,80 +118,67 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 			const char*	cmdLine				/* linea di comando completa */
 			)
 {
-	int invalidOptions = 0;
+	int mTotInvalidOptions = 0;
 	char cOpt = 0;
 	const char* p = NULL;
-	char cmdBuffer[MAX_CMDLINE+1] = {0};
+	char szCmdLine[MAX_CMDLINE+1] = {0};
 	char arg[MAX_CMDLINE+1] = {0};
-	bool invalidOption = FALSE;
-	int wrongOptsIdx = 0;
+	bool bInvalidOption = FALSE;
+	int nWrongOptsIdx = 0;
 
 	/*
-	via debugger o via linea di comando (come conseguenza del comportamento della libreria CRT), l'argomento racchiuso tra doppi apici 
-	viene 'ripulito' automaticamente, ossia vengono rimossi i doppi apici, a meno che non si specifichino preceduti da un backslash
-	per ovviare al problema, ignora argc/argv e recupera direttamente l'intera linea di comando cosi' come e' stata passata alla shell,
-	in modo tale che si possano usare i doppi apici senza precederli con un backslash
-	in poche parole, passare la cmd invece degli argomenti in teoria e' decisione del chiamante, ma qui se ne frega e carica si' o si'
-	la cmd per ovviare al problema della traslazione automatica di cui sopra
-	*/
+	via debugger o via linea di comando (per come funziona la libreria CRT), l'argomento racchiuso tra doppi apici viene 'ripulito'
+	automaticamente: i doppi apici vengono rimossi a meno che non si specifichino preceduti da un backslash
 
-	/*
-	PERO' molto occhio perche' la zoccola di Win32 aggiunge uno spazio al nome dell'eseguibile anche se non vengono specificati parametri,
-	per compatibilita' con il vecchio PSP (Program Segment Prefix) del DOS o per puttanate varie come le utility di sistema (incluso cmd.exe) 
-	che internamente hanno una logica del tipo: sprintf(buffer,"%s %s",exe,params); e se params e' una stringa vuota, terminano producendo
-	exe + spazio + NULL
+	per ovviare al problema, si potrebbe ignorare argc/argv e recuperare direttamente l'intera linea di comando cosi' come e' stata
+	passata alla shell, in modo tale che si possano usare i doppi apici senza precederli con un backslash
+	in poche parole, il chiamante puo' decidere se passare gli argc/argv originali o la cmd completa, da ricavare tramite la chiamata:
+	GetSafeCommandLine(GetCommandLine())
+	che elimina il nome dell'eseguibile
+
+	in ogni caso il codice sotto gestisce gli spazi tra i componenti del argomento
 	*/
-	cmdLine = GetCmdParameters(GetCommandLine());
 
 	/* distingue tra passaggio cmd e passaggio argc/argv */
-	if(cmdLine)
+
+	if(cmdLine) /* cmd */
 	{
 		/* nessun parametro */
 		if(strlen(cmdLine) <= 0)
 			return(-1);
 
-		/* copia in locale la linea di comando */
+		/* copia in locale la linea di comando SENZA il nome dell'eseguibile (argv[0]) */
 		ASSERTEXPR(strlen(cmdLine) < MAX_CMDLINE);
 		if(strlen(cmdLine) >= MAX_CMDLINE)
 			return(-2);
 
-		strcpyn(cmdBuffer,cmdLine,sizeof(cmdBuffer));
+		strcpyn(szCmdLine,cmdLine,sizeof(szCmdLine));
 	}
-	else
+	else /* argc/argv */
 	{
 		/* nessun parametro */
-		if(argc==-1 || !argv)
+		if(argc <= 1)
 			return(-1);
 
-		/* concatena i parametri di *argv[] in una linea di comando unica e continua */
-		int i;
-		int nTot = 0;
-		for(i = 1; i < argc; i++)
-			nTot += ((int)strlen(argv[i]) + 1); /* + 1 per spazi separatori tra i parametri */
-		if(nTot > 0)
-		{
-			ASSERTEXPR(nTot < MAX_CMDLINE);
-			if(nTot >= MAX_CMDLINE)
-				return(-2);
-
-			int n = 0;
-			for(i = 1; i < argc; i++)
-				n += snprintf(cmdBuffer+n,sizeof(cmdBuffer)-n,"%s%s",argv[i],i==argc-1 ? "" : " ");
-		}
+		/* concatena i parametri in una stringa SENZA il nome dell'eseguibile */
+		if(!GetCommandLineAsString(argc,argv,szCmdLine,sizeof(szCmdLine)))
+			return(-2);
 	}
 
 	/* buffer per opzioni errate */
 	if(wrongOptsSize!=-1)
 		strzero(wrongOptsBuffer,wrongOptsSize);
 
+	/* linea di comando completa SENZA il nome dell'eseguibile (argv[0]) */
+	p = szCmdLine;
+
 	/* scorre la linea di comando */
-	p = cmdBuffer;
 	while(*p)
 	{
 		/* trovato il carattere che precede l'opzione, lo salta */
 		if(*p==cFlag)
 		{
-			invalidOption = FALSE;
+			bInvalidOption = FALSE;
 
 			/* ricava il carattere che identifica l'opzione */
 			cOpt = *++p;
@@ -171,7 +189,7 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 				/* ha trovato l'opzione */
 				if(opts[i].cOpt==cOpt)
 				{
-					invalidOption = opts[i].bFound = TRUE;
+					bInvalidOption = opts[i].bFound = TRUE;
 					
 					/* se l'opzione prevede un argomento, lo ricava */
 					if(opts[i].bArgs)
@@ -235,7 +253,7 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 						if(!*arg)
 						{
 							opts[i].bArgs = FALSE; /* occhio! marca a FALSE il flag impostato dal chiamante per dire che l'opzione richiede un argomento */
-							invalidOption = 0;
+							bInvalidOption = 0;
 							break;
 						}
 
@@ -284,11 +302,11 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 			} /* for, per scorrere l'array delle opzioni */
 
 			/* elenca (tutte) le opzioni invalide... */
-			if(!invalidOption)
+			if(!bInvalidOption)
 			{
 				if(wrongOptsSize!=-1)
-					wrongOptsBuffer[wrongOptsIdx++] = cOpt;
-				invalidOptions++;
+					wrongOptsBuffer[nWrongOptsIdx++] = cOpt;
+				mTotInvalidOptions++;
 				p++;
 			}
 		}
@@ -301,13 +319,13 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 		else
 		{
 			if(wrongOptsSize!=-1)
-				wrongOptsBuffer[wrongOptsIdx++] = *p;
-			invalidOptions++;
+				wrongOptsBuffer[nWrongOptsIdx++] = *p;
+			mTotInvalidOptions++;
 			p++;
 		}
 
 	} /* while, per tutti i caratteri della linea di comando */
 
 	/* restituisce il numero di opzioni/parametri invalidi */
-	return(invalidOptions);
+	return(mTotInvalidOptions);
 }

@@ -1,113 +1,12 @@
 /*$
 	CWindowsVersion.cpp
 	Classe per ricavare la versione di Windows.
+	(vedi anche il codice in win32api.c)
 	Luca Piergentili, 20/11/02
 	lpiergentili@yahoo.com
 
 	Esempio:
 
-	//
-	//	GetWindowsVersion()
-	//
-	char szWindowsPlatform[128] = {0};
-	DWORD dwMajorVersion=0L;
-	DWORD dwMinorVersion=0L;
-
-	OSVERSIONTYPE ostype = GetWindowsVersion(szWindowsPlatform,sizeof(szWindowsPlatform)-1,&dwMajorVersion,&dwMinorVersion);
-	printf(	"\nGetWindowsVersion()\n"\
-			"OSVERSIONTYPE: %d\n"\
-			"Windows platform: %s\n"\
-			"OS ver major: %ld\n"\
-			"OS ver minor: %ld\n"\
-			"[Press Enter]\n",
-			ostype,szWindowsPlatform,dwMajorVersion,dwMinorVersion);
-	getchar();
-
-	//
-	//	GetWindowsVersionEx()
-	//
-	OSVERSIONINFOEX osvi = {0};
-	GetWindowsVersionEx(&osvi);
-	printf("\nGetWindowsVersionEx()\n");
-	printf("dwOSVersionInfoSize %ld\n",osvi.dwOSVersionInfoSize);
-	printf("dwMajorVersion      %ld\n",osvi.dwMajorVersion);
-	printf("dwMinorVersion      %ld\n",osvi.dwMinorVersion);
-	printf("dwBuildNumber       %ld\n",osvi.dwBuildNumber);
-	printf("dwPlatformId        %ld\n",osvi.dwPlatformId);
-	printf("szCSDVersion         %s\n",osvi.szCSDVersion);
-	printf("wServicePackMajor    %d\n",osvi.wServicePackMajor);
-	printf("wServicePackMinor    %d\n",osvi.wServicePackMinor);
-	printf("wSuiteMask           %d\n",osvi.wSuiteMask);
-	printf("wProductType         %d\n",osvi.wProductType);
-	printf("wReserved            %d\n",osvi.wReserved);
-	printf("[Press Enter]\n");
-	getchar();
-
-	//
-	//	GetWindowsVersionData()
-	//
-	REGVALUEINFO regValuesCurrentVersion[] = {
-		{"BuildLab", REG_SZ,0},
-		{"BuildLabEx", REG_SZ,0},
-		{"CurrentBuild", REG_SZ,0},
-		{"CurrentBuildNumber", REG_SZ,0},
-		{"CurrentMajorVersionNumber", REG_DWORD,0},
-		{"CurrentMinorVersionNumber", REG_DWORD,0},
-		{"CurrentType", REG_SZ,0},
-		{"CurrentVersion", REG_SZ,0},
-		{"InstallationType", REG_SZ,0},
-		{"InstallDate", REG_DWORD,0}, // 0x6024f748, 1613035336
-		{"PathName", REG_SZ,0},
-		{"ProductId", REG_SZ,0},
-		{"ProductName", REG_SZ,0},
-		{"RegisteredOrganization", REG_SZ,0},
-		{"RegisteredOwner", REG_SZ,0},
-		{"ReleaseId", REG_SZ,0},
-		{"SystemRoot", REG_SZ,0},
-		{"WinREVersion", REG_SZ,0}
-	};
-
-	#define BuildLab_INDEX						0
-	#define BuildLabEx_INDEX					1
-	#define CurrentBuild_INDEX					2
-	#define CurrentBuildNumber_INDEX			3
-	#define CurrentMajorVersionNumber_INDEX		4
-	#define CurrentMinorVersionNumber_INDEX		5
-	#define CurrentType_INDEX					6
-	#define CurrentVersion_INDEX				7
-	#define InstallationType_INDEX				8
-	#define InstallDate_INDEX					9
-	#define PathName_INDEX						10
-	#define ProductId_INDEX						11
-	#define ProductName_INDEX					12
-	#define RegisteredOrganization_INDEX		13
-	#define RegisteredOwner_INDEX				14
-	#define ReleaseId_INDEX						15
-	#define SystemRoot_INDEX					16
-	#define WinREVersion_INDEX					17
-
-	int size = sizeof(regValuesCurrentVersion) / sizeof(regValuesCurrentVersion[0]);
-	GetWindowsVersionData(&(regValuesCurrentVersion[0]),size);
-
-	char buf[128]={0};
-	unixTimeStampToDate(regValuesCurrentVersion[InstallDate_INDEX].value.dword,buf,sizeof(buf)-1);
-
-	printf(	"\nGetCurrentVersionData()\n"\
-			"running on: %s\n"\
-			"installation date: %s\n"\
-			"major ver number: %ld\n"\
-			"minor ver number: %ld\n"\
-			"[Press Enter]\n",
-			regValuesCurrentVersion[ProductName_INDEX].value.string,
-			buf,
-			regValuesCurrentVersion[CurrentMajorVersionNumber_INDEX].value.dword,
-			regValuesCurrentVersion[CurrentMinorVersionNumber_INDEX].value.dword
-			);
-	getchar();
-
-	//
-	//	CWindowsVersion
-	//
 	CWindowsVersion winver;
 	DWORD dwMajor=0L;
 	DWORD dwMinor=0L;
@@ -143,7 +42,7 @@
 #include "window.h"
 #include "win32api.h"
 #include "CRegKey.h"
-//#include "CWindowsXPTheme.h"
+#include "CWindowsXPTheme.h"
 #include "CWindowsVersion.h"
 
 #include "traceexpr.h"
@@ -227,7 +126,7 @@ CWindowsVersion::CWindowsVersion()
 	}
 
 	// per far caricare la DLL alla classe relativa solo quando serve
-// 	m_pXPTheme = NULL;
+ 	m_pXPTheme = NULL;
 }
 
 /*
@@ -235,8 +134,8 @@ CWindowsVersion::CWindowsVersion()
 */
 CWindowsVersion::~CWindowsVersion()
 {
-// 	if(m_pXPTheme)
-// 		delete m_pXPTheme,m_pXPTheme = NULL;
+	if(m_pXPTheme)
+ 		delete m_pXPTheme,m_pXPTheme = NULL;
 }
 
 /*
@@ -340,7 +239,6 @@ void CWindowsVersion::GetPlatformInfo(LPSTR pBuffer,int cbBuffer)
 /*
 	GetWindowsXPTheme()
 */
-/*
 const CWindowsXPTheme* CWindowsVersion::GetWindowsXPTheme(void)
 {
 	// i temi vengono supportati solo a partire da XP
@@ -350,4 +248,3 @@ const CWindowsXPTheme* CWindowsVersion::GetWindowsXPTheme(void)
 
 	return(m_pXPTheme);
 }
-*/

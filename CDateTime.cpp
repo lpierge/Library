@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
+#include "strings.h"
 #include <ctype.h>
 #include <time.h>
 #include "Date.h"
@@ -414,17 +415,17 @@ const char* CDateTime::GetFormattedDate(BOOL getsysdate/*=TRUE*/)
 			}
 
 			// formatta i valori di data e ora (Day, dd Mon yyyy hh:mm:ss)
-			i = snprintf(m_Date.datestr,
-						sizeof(m_Date.datestr),
-						"%s, %.2d %s %.4d %.2d:%.2d:%.2d",	
-						day_array[((m_Date.dayofweek >= 0 && m_Date.dayofweek <= 6) ? m_Date.dayofweek : 7)],
-						m_Date.day,
-						month_array[((m_Date.month-1 >= 0 && m_Date.month-1 <= 11) ? m_Date.month-1 : 12)],
-						m_Date.year,
-						m_Time.hour,
-						m_Time.min,
-						m_Time.sec
-						);
+			i = wtfsnprintf(m_Date.datestr,
+							sizeof(m_Date.datestr),
+							"%s, %.2d %s %.4d %.2d:%.2d:%.2d",	
+							day_array[((m_Date.dayofweek >= 0 && m_Date.dayofweek <= 6) ? m_Date.dayofweek : 7)],
+							m_Date.day,
+							month_array[((m_Date.month-1 >= 0 && m_Date.month-1 <= 11) ? m_Date.month-1 : 12)],
+							m_Date.year,
+							m_Time.hour,
+							m_Time.min,
+							m_Time.sec
+							);
 			if(i > 0)
 			{
 				if(m_Date.format==GMT_SHORT) // aggiunge 'GMT'

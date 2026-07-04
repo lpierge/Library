@@ -4,11 +4,11 @@
 	Luca Piergentili, 13/09/98
 	lpiergentili@yahoo.com
 
-	Attenzione: se si incorpora questo file (.c) in un progetto C++/MFC, la inclusione del file "window.h" di cui sotto
-	genera, in cascata, la inclusione di "windows.h" e "afx.h", con quest'ultimo generando l'errore:
-	#error MFC requires C++ compilation (use a .cpp suffix)
-	dato che il file ha estensione .c.
+	Attenzione: se si incorpora questo file (.c) in un progetto C++/MFC, la inclusione del file "window.h" puo' generare, in cascata, la 
+	inclusione di "windows.h" e "afx.h", con quest'ultimo generando l'errore: #error MFC requires C++ compilation (use a .cpp suffix)
+	dato che il file ha estensione .c, oltre ad errori di vario tipo.
 	Per risolvere o si rinomina il file in .cpp o si forza la compilazione in modalita' C++ con l'opzione relativa (/TP).
+	(Proprieta' del progetto -> C++ -> Avanzato -> Compilare come... -> C++)
 */
 #include "pragma.h"
 #include "env.h"
@@ -28,8 +28,8 @@
 #include <shlwapi.h>
 
 #include "traceexpr.h"
-#define _TRACE_FLAG			_TRFLAG_TRACEOUTPUT // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
-//#define _TRACE_FLAG			_TRFLAG_NOTRACE // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
+//#define _TRACE_FLAG			_TRFLAG_TRACEOUTPUT // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
+#define _TRACE_FLAG			_TRFLAG_NOTRACE // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
 #define _TRACE_FLAG_INFO	_TRACE_FLAG
 #define _TRACE_FLAG_WARN	_TRACE_FLAG
 #define _TRACE_FLAG_ERR		_TRACE_FLAG
@@ -41,6 +41,7 @@ static UINT InternalMessageBox(HWND hWnd,LPCSTR lpcszText,LPCSTR lpcszTitle,UINT
 	GetWindowsVersion()
 
 	Ricava la versione di Windows (stringa descrittiva e numero versione major/minor).
+	(vedi anche il codice in CWindowsVersion.cpp)
 
 	Esempio:
 
@@ -57,8 +58,6 @@ static UINT InternalMessageBox(HWND hWnd,LPCSTR lpcszText,LPCSTR lpcszTitle,UINT
 			"[Press Enter]\n",
 			ostype,szWindowsPlatform,dwMajorVersion,dwMinorVersion);
 	getchar();
-	
-	Restituisce la versione.
 */
 OSVERSIONTYPE GetWindowsVersion(LPSTR lpszWindowsPlatform,UINT nSize,LPDWORD pdwMajorVersion,LPDWORD pdwMinorVersion)
 {
@@ -162,6 +161,7 @@ OSVERSIONTYPE GetWindowsVersion(LPSTR lpszWindowsPlatform,UINT nSize,LPDWORD pdw
 	GetWindowsVersionEx()
 
 	Ricava la versione di Windows (riempie la struttura).
+	(vedi anche il codice in CWindowsVersion.cpp)
 
 	Tenere presente che esistono due strutture differenti: OSVERSIONINFO 
 	(vedi funzione sopra) e OSVERSIONINFOEX (questa funzione).
@@ -176,12 +176,12 @@ OSVERSIONTYPE GetWindowsVersion(LPSTR lpszWindowsPlatform,UINT nSize,LPDWORD pdw
 	printf("dwMinorVersion      %ld\n",osvi.dwMinorVersion);
 	printf("dwBuildNumber       %ld\n",osvi.dwBuildNumber);
 	printf("dwPlatformId        %ld\n",osvi.dwPlatformId);
-	printf("szCSDVersion         %s\n",osvi.szCSDVersion);
-	printf("wServicePackMajor    %d\n",osvi.wServicePackMajor);
-	printf("wServicePackMinor    %d\n",osvi.wServicePackMinor);
-	printf("wSuiteMask           %d\n",osvi.wSuiteMask);
-	printf("wProductType         %d\n",osvi.wProductType);
-	printf("wReserved            %d\n",osvi.wReserved);
+	printf("szCSDVersion        %s\n",osvi.szCSDVersion);
+	printf("wServicePackMajor   %d\n",osvi.wServicePackMajor);
+	printf("wServicePackMinor   %d\n",osvi.wServicePackMinor);
+	printf("wSuiteMask          %d\n",osvi.wSuiteMask);
+	printf("wProductType        %d\n",osvi.wProductType);
+	printf("wReserved           %d\n",osvi.wReserved);
 	printf("[Press Enter]\n");
 	getchar();
 
@@ -199,6 +199,7 @@ BOOL GetWindowsVersionEx(OSVERSIONINFOEX* osvi)
 	GetWindowsVersionData()
 
 	Ricava la versione di Windows (riempie dinamicamente l'array del chiamante).
+	(vedi anche il codice in CWindowsVersion.cpp)
 
 	OJO al redireccionamiento del registro WOW64 (Windows-on-Windows 64-bit)
 	Aplicaciones de 32 bits en sistemas de 64 bits: si el programa C está compilado como una aplicación de 32 bits y se
@@ -268,7 +269,7 @@ BOOL GetWindowsVersionEx(OSVERSIONINFOEX* osvi)
 	GetWindowsVersionData(&(regValuesCurrentVersion[0]),size);
 
 	char buf[128]={0};
-	unixTimeStampToDate(regValuesCurrentVersion[InstallDate_INDEX].value.dword,buf,sizeof(buf)-1);
+	unix_timestamp_to_date(regValuesCurrentVersion[InstallDate_INDEX].value.dword,buf,sizeof(buf)-1);
 
 	printf(	"\nGetCurrentVersionData()\n"\
 			"running on: %s\n"\
@@ -344,17 +345,17 @@ BOOL GetWindowsVersionData(REGVALUEINFO *pRegValues,UINT nSize)
             if(dwActualType==expectedType)
 			{
 				/* format the value name, left-aligned */
-                nBufferpointer += snprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%-25s: ",valueName);
+                nBufferpointer += wtfsnprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%-25s: ",valueName);
 
                 if(expectedType==REG_SZ) 
 				{
-                    nBufferpointer += snprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%s\n",(LPCTSTR)byteBuffer);
+                    nBufferpointer += wtfsnprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%s\n",(LPCTSTR)byteBuffer);
 					strcpyn(pRegValues[i].value.string,(char*)byteBuffer,REG_VALUE_MAXSTR);
                 }
 				else if(expectedType==REG_DWORD)
 				{
                     /* for DWORD (REG_DWORD) type, cast and format as unsigned long */
-                    nBufferpointer += snprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%lu\n",*(DWORD*)byteBuffer);
+                    nBufferpointer += wtfsnprintf(szBuffer+nBufferpointer,nBuffersize+strlen(szBuffer),"%lu\n",*(DWORD*)byteBuffer);
 					
 					/*
 					esta es la forma correcta de interpretar los bytes binarios de un REG_DWORD leídos directamente del 
@@ -398,7 +399,7 @@ BOOL GetWindowsVersionData(REGVALUEINFO *pRegValues,UINT nSize)
     return(TRUE);
 }
 
-// (ri)definisce i tipi minimi necessari per non includere ntddk.h/wdm.h
+/* (ri)definisce i tipi minimi necessari per non includere ntddk.h/wdm.h */
 typedef LONG NTSTATUS;
 #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
 
@@ -412,13 +413,22 @@ typedef LONG NTSTATUS;
 } RTL_OSVERSIONINFOW, *PRTL_OSVERSIONINFOW;
 */
 
-// typedef per la funzione
+/* typedef per la funzione */
 typedef NTSTATUS (NTAPI *pRtlGetVersion)(PRTL_OSVERSIONINFOW);
 
 /*
 	GetWindowsUAPlatform()
 
 	Ricava la versione di Windows in formato UA.
+	(vedi anche il codice in CWindowsVersion.cpp)
+
+	Esempio:
+	
+	char szUA[32] = {0};
+	double nUA = 0.0;
+	GetWindowsUAPlatform(szUA,sizeof(szUA),&nUA);
+	printf(	"\GetWindowsUAPlatform(): %s (version %.0f)\n[Press Enter]\n",szUA,nUA);
+	getchar();
 */
 BOOL GetWindowsUAPlatform(LPSTR lpszVersion,UINT nVersionSize,double* pnVersion)
 {
@@ -451,8 +461,8 @@ BOOL GetWindowsUAPlatform(LPSTR lpszVersion,UINT nVersionSize,double* pnVersion)
         return(FALSE);
     }
 
-    // NT version string (sempre NT 10.0 per Win10/11)
-	const char* pNTVersion = "Windows";  // fallback
+    /* NT version string (sempre NT 10.0 per Win10/11) */
+	const char* pNTVersion = "Windows";  /* fallback */
     if(rovi.dwMajorVersion >= 10)
 	{
 		*pnVersion = 10.0f;
@@ -463,31 +473,31 @@ BOOL GetWindowsUAPlatform(LPSTR lpszVersion,UINT nVersionSize,double* pnVersion)
         if(rovi.dwMinorVersion==3)
 		{
 			*pnVersion = 6.3f;
-            pNTVersion = "Windows NT 6.3";   // 8.1
+            pNTVersion = "Windows NT 6.3";   /* 8.1 */
         }
 		else if(rovi.dwMinorVersion==2)
 		{
 			*pnVersion = 6.2f;
-            pNTVersion = "Windows NT 6.2";   // 8
+            pNTVersion = "Windows NT 6.2";   /* 8 */
         }
 		else if(rovi.dwMinorVersion==1)
 		{
 			*pnVersion = 6.1f;
-            pNTVersion = "Windows NT 6.1";   // 7
+            pNTVersion = "Windows NT 6.1";   /* 7 */
         }
 		else if(rovi.dwMinorVersion==0)
 		{
 			*pnVersion = 6.0f;
-            pNTVersion = "Windows NT 6.0";   // Vista
+            pNTVersion = "Windows NT 6.0";   /* Vista */
         }
     }
 	else if(rovi.dwMajorVersion==5)
 	{
 		*pnVersion = 5.1f;
-        pNTVersion = "Windows NT 5.1";       // XP
+        pNTVersion = "Windows NT 5.1";       /* XP */
     }
 
-    // architettura
+    /* architettura */
     SYSTEM_INFO si = {0};
     GetNativeSystemInfo(&si);
 
@@ -517,6 +527,14 @@ BOOL GetWindowsUAPlatform(LPSTR lpszVersion,UINT nVersionSize,double* pnVersion)
 	GetFriendlyWindowsName()
 
 	Ricava la versione di Windows in formato "amichevole".
+	(vedi anche il codice in CWindowsVersion.cpp)
+
+	Esempio:
+
+	char szOSFriendlyVersion[128] = {0};
+	GetFriendlyWindowsName(szOSFriendlyVersion,sizeof(szOSFriendlyVersion));
+	printf(	"\GetFriendlyWindowsName(): %s\n[Press Enter]\n",szOSFriendlyVersion);
+	getchar();
 */
 BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
 {
@@ -525,7 +543,7 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
 
     memset(lpszVersion,'\0',nVersionSize);
 
-    // carica ptrRtlGetVersion dinamicamente
+    /* carica ptrRtlGetVersion dinamicamente */
     HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
     if(!hNtdll)
 	{
@@ -550,8 +568,8 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
 
     DWORD dwBuild = osvi.dwBuildNumber;
 
-    // nome base OS
-    const char *pOSName = "Windows (legacy)"; // fallback
+    /* nome base OS */
+    const char *pOSName = "Windows (legacy)"; /* fallback */
     if(dwBuild >= 22000)
 	{
         pOSName = "Windows 11";
@@ -573,8 +591,8 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
         return(FALSE);
     }
 
-    // NT version string (sempre NT 10.0 per Win10/11)
-	const char* pNTVersion = "Windows"; // fallback
+    /* NT version string (sempre NT 10.0 per Win10/11) */
+	const char* pNTVersion = "Windows"; /* fallback */
 	double pnVersion = 0.0f;
     if(rovi.dwMajorVersion >= 10)
 	{
@@ -586,28 +604,28 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
         if(rovi.dwMinorVersion==3)
 		{
 			pnVersion = 6.3f;
-            pNTVersion = "Windows NT 6.3";   // 8.1
+            pNTVersion = "Windows NT 6.3";   /* 8.1 */
         }
 		else if(rovi.dwMinorVersion==2)
 		{
 			pnVersion = 6.2f;
-            pNTVersion = "Windows NT 6.2";   // 8
+            pNTVersion = "Windows NT 6.2";   /* 8 */
         }
 		else if(rovi.dwMinorVersion==1)
 		{
 			pnVersion = 6.1f;
-            pNTVersion = "Windows NT 6.1";   // 7
+            pNTVersion = "Windows NT 6.1";   /* 7 */
         }
 		else if(rovi.dwMinorVersion==0)
 		{
 			pnVersion = 6.0f;
-            pNTVersion = "Windows NT 6.0";   // Vista
+            pNTVersion = "Windows NT 6.0";   /* Vista */
         }
     }
 	else if(rovi.dwMajorVersion==5)
 	{
 		pnVersion = 5.1f;
-        pNTVersion = "Windows NT 5.1";       // XP
+        pNTVersion = "Windows NT 5.1";       /* XP */
     }
 
     /* edizione */
@@ -625,7 +643,7 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
 		case PRODUCT_PROFESSIONAL:			pEdition = "Pro";					break;
 		case PRODUCT_ENTERPRISE:			pEdition = "Enterprise";			break;
 		case PRODUCT_EDUCATION:				pEdition = "Education";				break;
-		//case PRODUCT_PRO_FOR_WORKSTATIONS:	pEdition = "Pro for Workstations"; break;
+		/* case PRODUCT_PRO_FOR_WORKSTATIONS:	pEdition = "Pro for Workstations"; break; */
 		case PRODUCT_IOTENTERPRISE:			pEdition = "IoT Enterprise";		break;
 		case PRODUCT_PRO_CHINA:				pEdition = "Pro China";				break;
 		case PRODUCT_ENTERPRISEG:			pEdition = "Enterprise G";			break;
@@ -639,14 +657,14 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
         char buf[64] = {0};
         DWORD size = sizeof(buf);
 
-        // prova prima DisplayVersion (Win10 20H2+ / Win11)
+        /* prova prima DisplayVersion (Win10 20H2+ / Win11) */
         if(RegQueryValueEx(hKey,"DisplayVersion",NULL,NULL,(LPBYTE)buf,&size)==ERROR_SUCCESS && buf[0])
         {
             strcpyn(szFriendlyVersion,buf,sizeof(szFriendlyVersion));
         }
         else
         {
-            // fallback su ReleaseId (vecchie Win10)
+            /* fallback su ReleaseId (vecchie Win10) */
             size = sizeof(buf);
             if(RegQueryValueEx(hKey,"ReleaseId",NULL,NULL,(LPBYTE)buf,&size)==ERROR_SUCCESS && buf[0])
                 strcpyn(szFriendlyVersion,buf,sizeof(szFriendlyVersion));
@@ -655,14 +673,14 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
         RegCloseKey(hKey);
     }
 
-	int len = snprintf	(lpszVersion,
-						nVersionSize,
-						"%s %s%s%s (dwBuild %u)",
-						pOSName,
-						pEdition,
-						(szFriendlyVersion[0] != '\0') ? " " : "",
-						szFriendlyVersion,
-						dwBuild);
+	int len = wtfsnprintf(	lpszVersion,
+							nVersionSize,
+							"%s %s%s%s (dwBuild %u)",
+							pOSName,
+							pEdition,
+							(szFriendlyVersion[0] != '\0') ? " " : "",
+							szFriendlyVersion,
+							dwBuild);
 
     if(len < 0 || len >= (int)nVersionSize)
 	{
@@ -797,7 +815,7 @@ LPSTR GetUniqueMutexName(void)
 	static int n = 0;
 	char* pMutexName = NULL;
 	if((pMutexName = (char*)calloc(_MAX_FILEPATH+1,sizeof(char)))!=NULL)
-		snprintf(pMutexName,_MAX_FILEPATH+1,"mutex-%d-%lld",n++,unixTimeStamp());
+		snprintf(pMutexName,_MAX_FILEPATH+1,"mutex-%d-%lld",n++,unix_timestamp());
 	return(pMutexName);
 }
 
@@ -1068,7 +1086,7 @@ BOOL ExtractResource(UINT nID,LPCSTR lpcszResName,LPCSTR lpcszOutputFile)
 			if(lpVoid)
 			{
 				DWORD dwError = 0L;
-				EnsurePathname(lpcszOutputFile,&dwError);
+				EnsurePathnameExists(lpcszOutputFile,&dwError);
 
 				HANDLE handle;
 				if((handle = CreateFile(lpcszOutputFile,GENERIC_WRITE,0,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL))!=INVALID_HANDLE_VALUE)
@@ -1468,13 +1486,13 @@ UINT GetDriveFromPath(LPCSTR lpcszPathName,LPSTR lpszDrive,UINT nSize)
 
 	Restituisce la probabilita' per i due tipi, o {-1,-1} in caso di errore (es. file non trovato).
 */
-FILETYPEPROBABILITY GetFileTypeProbability(LPCSTR lpcszFileName)
+FILETYPEPROB GetFileTypeProbability(LPCSTR lpcszFileName)
 {
 	ASSERTEXPR(lpcszFileName);
 
 	#define SAMPLE_CHUNK_SIZE 4096
 
-	FILETYPEPROBABILITY probability = {-1,-1};
+	FILETYPEPROB probability = {-1,-1};
 
 	ASSERTEXPR(lpcszFileName);
 	if(!lpcszFileName)
@@ -1752,7 +1770,7 @@ BOOL DoesDirectoryExist(LPCSTR lpcszDirectory,LPDWORD pdwLastError/* passare NUL
     if(pdwLastError)
 		*pdwLastError = 0L;
 
-	/* ricavare gli attributi del pathname */
+	/* ricava gli attributi del pathname */
 	DWORD dwAttributes = GetFileAttributes(lpcszDirectory);
 
 	/* errore */
@@ -2012,9 +2030,8 @@ DWORD CopyFileMapped(LPCSTR lpcszSrcFileName,LPCSTR lpcszDstFileName)
 	ASSERTEXPR(lpcszDstFileName);
 
 	/*
-	se ci si trova su x86, invece che su x64, mappare l'intero file in una botta sola, quando il
-	file supera i 1,5 ~ 2GB scasina leggermente, quindi imposta un limite oltre il quale la copia, 
-	viene eseguita per blocchi
+	se ci si trova su x86, invece che su x64, mappare l'intero file in una botta sola, quando il file supera 
+	1,5 ~ 2GB scasina leggermente, quindi imposta un limite oltre il quale la copia, viene eseguita per blocchi
 	*/
 	#define COPY_SINGLE_MAP_LIMIT   (256ULL * 1024 * 1024)  /* 256 MB */
 	#define COPY_CHUNK_SIZE         (64ULL  * 1024 * 1024)  /* 64 MB */
@@ -2027,7 +2044,7 @@ DWORD CopyFileMapped(LPCSTR lpcszSrcFileName,LPCSTR lpcszDstFileName)
     LARGE_INTEGER fileSize = {0};
 
 	/* apre il file di input */
-    hSrcFile = CreateFileA(lpcszSrcFileName,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,NULL);
+    hSrcFile = CreateFile(lpcszSrcFileName,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,NULL);
     if(hSrcFile==INVALID_HANDLE_VALUE)
     {
 		dwResult = GetLastError();
@@ -2047,7 +2064,7 @@ DWORD CopyFileMapped(LPCSTR lpcszSrcFileName,LPCSTR lpcszDstFileName)
     }
 
 	/* apre (sovrascrivendo) o crea il file di output */
-    hDstFile = CreateFileA(lpcszDstFileName,GENERIC_READ | GENERIC_WRITE,0,NULL,CREATE_ALWAYS,0,NULL);
+    hDstFile = CreateFile(lpcszDstFileName,GENERIC_READ | GENERIC_WRITE,0,NULL,CREATE_ALWAYS,0,NULL);
     if(hDstFile==INVALID_HANDLE_VALUE)
     {
 		dwResult = GetLastError();
@@ -2060,13 +2077,13 @@ DWORD CopyFileMapped(LPCSTR lpcszSrcFileName,LPCSTR lpcszDstFileName)
     }
 
 	/* crea le mappature per i files */
-    hSrcMap = CreateFileMappingA(hSrcFile,NULL,PAGE_READONLY,0,0,NULL);
+    hSrcMap = CreateFileMapping(hSrcFile,NULL,PAGE_READONLY,0,0,NULL);
     if(!hSrcMap)
     {
 		dwResult = GetLastError();
         goto done;
     }
-    hDstMap = CreateFileMappingA(hDstFile,NULL,PAGE_READWRITE,0,0,NULL);
+    hDstMap = CreateFileMapping(hDstFile,NULL,PAGE_READWRITE,0,0,NULL);
     if(!hDstMap)
     {
 		dwResult = GetLastError();
@@ -2182,16 +2199,16 @@ done:
 
 	La funzione e' specifica per i files di testo, dato che aggiunge un carattere nullo alla fine della mappatura
 	del file per poter trattare il buffer in cui viene letto come se fosse una stringa C null-terminated, cosa che
-	permette l'uso delle funzioni str...(), etc., non ha quindi senso usare la funzione con file binari.
+	permette l'uso delle funzioni str...(), etc., per cui NON si puo' usare tale funzione con file binari.
 
-	La funzione legge la dimensione originale del file su disco e la salva in pMappedFile->qwFileSize (es. 100 byte).
-	Chiama quindi CreateFileMapping specificando una dimensione di mappatura di pMappedFile->qwFileSize + 1 (ossia di
-	101 byte). Chiama quindi MapViewOfFile e scrive '\0' all'indice pMappedFile->qwFileSize + 1 (il byte #101).
-	Pero', anche se il byte '\0' viene scritto sulla mappatura, il kernel del file system modifica comunque il file su 
-	disco, per cui alla chiusura del file bisogna ripristinare il fine file originario.
+	La funzione legge la dimensione originale del file su disco e la salva in pMappedFile->qwFileSize (es.100 byte).
+	Chiama quindi CreateFileMapping specificando una dimensione di mappatura di pMappedFile->qwFileSize + 1 (ossia 
+	di 101 byte). Chiama quindi MapViewOfFile e scrive '\0' all'indice pMappedFile->qwFileSize + 1 (il byte #101).
+	Pero', anche se il byte '\0' viene scritto sulla mappatura, il kernel del file system modifica comunque il file 
+	su disco, per cui alla chiusura del file bisogna ripristinare il fine file originario.
 
-	Prima di chiamare la funzione, azzerare la struttura che deve ricevere in input, copiando il nome del
-	file nel campo relativo.
+	Prima di chiamare la funzione, azzerare la struttura che deve ricevere in input, copiando il nome del file nel 
+	campo relativo.
 
 	Restituisce TRUE se riesce, o FALSE per errore.	
 */
@@ -2350,11 +2367,11 @@ BOOL ChangeFileExtension(LPSTR lpszFilename,UINT nSize,LPCSTR lpcszNewExt)
 	ASSERTEXPR(nSize > 0);
 	ASSERTEXPR(lpcszNewExt);
 
-	// cerca l'ultima occorrenza del punto
+	/* cerca l'ultima occorrenza del punto */
 	char* pszLastDot = strrchr(lpszFilename,'.');
 
-	// cerca l'ultimo separatore di directory per evitare di confondersi 
-	// con punti in cartelle superiori (es. "C:\Mia.Cartella\file")
+	/* cerca l'ultimo separatore di directory per evitare di confondersi
+	   con punti in cartelle superiori (es. "C:\Mia.Cartella\file") */
 	char* pszLastSlash = strrchr(lpszFilename,'\\');
 	if(strrchr(lpszFilename,'/'))
 	{
@@ -2363,24 +2380,24 @@ BOOL ChangeFileExtension(LPSTR lpszFilename,UINT nSize,LPCSTR lpcszNewExt)
 			pszLastSlash = pszAltSlash;
 	}
 
-	// se il punto viene prima dello slash, non e' l'estensione del file ma parte del path
+	/* se il punto viene prima dello slash, non e' l'estensione del file ma parte del path */
 	if(pszLastDot < pszLastSlash)
 		pszLastDot = NULL;
 
-	// tronca la stringa al punto (se esiste) per rimuovere la vecchia estensione
+	/* tronca la stringa al punto (se esiste) per rimuovere la vecchia estensione */
 	if(pszLastDot)
 		*pszLastDot = '\0';
 
-	// calcola la lunghezza necessaria
+	/* calcola la lunghezza necessaria */
 	size_t nCurrentLen = strlen(lpszFilename);
 	size_t nExtLen = strlen(lpcszNewExt);
 	BOOL bNeedsDot = lpcszNewExt[0]!='.';
     
-	// verifica spazio: path attuale + '.' (se serve) + estensione + null
+	/* verifica spazio: path attuale + '.' (se serve) + estensione + null */
 	if(nCurrentLen + (bNeedsDot ? 1 : 0) + nExtLen + 1 > nSize)
-		return(FALSE); // buffer troppo piccolo
+		return(FALSE); /* buffer troppo piccolo */
 
-	// aAssembla la nuova stringa
+	/* assembla la nuova stringa */
 	if(bNeedsDot)
 		strcat(lpszFilename,".");
 
@@ -2399,14 +2416,14 @@ BOOL CheckFileExtension(LPCSTR lpcszFilename,LPCSTR lpszExt)
 	ASSERTEXPR(lpcszFilename);
 	ASSERTEXPR(lpszExt);
 
-    // ricava il testo dell'estensione del nome file (salta il punto se presente)
+    /* ricava il testo dell'estensione del nome file (salta il punto se presente) */
     LPCSTR lpcszDot = strrchr(lpcszFilename,'.');
     if(!lpcszDot)
-        return(FALSE); // nessuna estensione presente
+        return(FALSE); /* nessuna estensione presente */
 
     LPCSTR lpcszFileExt = lpcszDot + 1;
 
-    // ricava il testo dell'estensione da testare (salta il punto se presente)
+    /* ricava il testo dell'estensione da testare (salta il punto se presente) */
     if(*lpszExt=='.')
         lpszExt++;
 
@@ -2571,7 +2588,7 @@ LPSTR RemoveBackslash(LPSTR lpszPathName)
 }
 
 /*
-	EnsurePathname()
+	EnsurePathnameExists()
 	
 	Si assicura che il pathname esista, creandolo se necessario.
 
@@ -2588,7 +2605,7 @@ LPSTR RemoveBackslash(LPSTR lpszPathName)
 
 	Restituisce TRUE se riesce, o FALSE in caso di errore.
 */
-BOOL EnsurePathname(LPCSTR lpcszPathName,LPDWORD pdwError)
+BOOL EnsurePathnameExists(LPCSTR lpcszPathName,LPDWORD pdwError)
 {
 	ASSERTEXPR(lpcszPathName);
 	ASSERTEXPR(pdwError);
@@ -2597,17 +2614,17 @@ BOOL EnsurePathname(LPCSTR lpcszPathName,LPDWORD pdwError)
 
 	char szPathName[_MAX_PATH+1] = {0};
 
-	// pathname troppo lungo
+	/* pathname troppo lungo */
 	if(strlen(lpcszPathName) > sizeof(szPathName)-1)
 	{
 		*pdwError = ERROR_BAD_PATHNAME;
 		return(FALSE);
 	}
 
-	// usa una copia locale
+	/* usa una copia locale */
 	strcpyn(szPathName,lpcszPathName,sizeof(szPathName));
 
-	// verifica se il pathname contiene un nome file e nel caso lo elimina
+	/* verifica se il pathname contiene un nome file e nel caso lo elimina */
 	char* p = strrchr(szPathName,'.');
 	if(p)
 	{
@@ -2616,8 +2633,8 @@ BOOL EnsurePathname(LPCSTR lpcszPathName,LPDWORD pdwError)
 			*p = '\0';
 	}
 
-	// verifica se il pathname termina con un \ e nel caso lo elimina
-	int n = strlen(szPathName);
+	/* verifica se il pathname termina con un \ e nel caso lo elimina */
+	int n = (int)strlen(szPathName);
 	if(szPathName[n-1]=='\\')
 		szPathName[n-1] = '\0';
 
@@ -3189,14 +3206,14 @@ long GetFileDateSysDateDiff(FILETIME* pftFileTime)
 {
 	ASSERTEXPR(pftFileTime);
 
-	/* quanti intervalli da 100ns ci sono in un minuto? */
-	/* 1 secondo = 10.000.000 (10^7) intervalli */
-	/* 1 minuto  = 60 * 10.000.000 = 600.000.000 */
-	#define TICKS_PER_MINUTE 600000000LL /* Nota: LL per signed long long */
+	/*
+	quanti intervalli da 100ns ci sono in un minuto?
+	1 secondo = 10.000.000 (10^7) intervalli
+	1 minuto  = 60 * 10.000.000 = 600.000.000
+	*/
+	#define TICKS_PER_MINUTE 600000000LL /* nota: LL per signed long long */
 
-	/* NON usare QWORD peche' e' unsigned */
-	/* LONGLONG invece e' signed */
-
+	/* NON usare QWORD peche' e' unsigned, LONGLONG invece e' signed */
     FILETIME ftNow = {0};
     SYSTEMTIME stNow = {0};
     ULARGE_INTEGER uiFile = {0};
@@ -3218,10 +3235,12 @@ long GetFileDateSysDateDiff(FILETIME* pftFileTime)
     /* (ora attuale - ora del file) */
     diffTicks = (LONGLONG)uiNow.QuadPart - (LONGLONG)uiFile.QuadPart;
 
-    /* divisione e cast a long */
-    /* se diffTicks e' positivo: il file e' nel PASSATO (normale) */
-    /* se diffTicks e' negativo: il file e' nel FUTURO (anomalia server) */
-    return (long)(diffTicks / TICKS_PER_MINUTE);
+    /*
+	divisione e cast a long
+    se diffTicks e' positivo: il file e' nel PASSATO (normale)
+    se diffTicks e' negativo: il file e' nel FUTURO (anomalia server)
+	*/
+    return((long)(diffTicks / TICKS_PER_MINUTE));
 }
 
 /*
@@ -3249,7 +3268,7 @@ BOOL GetTaskBarPos(TASKBARPOS* tbi)
 		tbi->nTaskbarHeight = tbi->rc.bottom - tbi->rc.top;
 
 		/* Daniel Lohmann: Calculate taskbar position from its window rect. However, on XP it may be that the
-		taskbar is slightly larger or smaller than the screen size. Therefore we allow some tolerance here.  */
+		taskbar is slightly larger or smaller than the screen size. Therefore we allow some tolerance here. */
 		if(NEARLYEQUAL(tbi->rc.left,0,TASKBAR_X_TOLERANCE) && NEARLYEQUAL(tbi->rc.right,tbi->nScreenWidth,TASKBAR_X_TOLERANCE))
 			tbi->nTaskbarPlacement = NEARLYEQUAL(tbi->rc.top,0,TASKBAR_Y_TOLERANCE) ? ABE_TOP : ABE_BOTTOM;
 		else 
@@ -3294,19 +3313,21 @@ void SetForegroundWindowEx(HWND hWnd,BOOL bInvalidate)
 
 	Restituisce un puntatore alla stringa wide allocata che deve essere liberata con free() o NULL per errore.
 */
-wchar_t* AnsiToWideChar(LPCSTR pszAnsi)
+wchar_t* AnsiToWideChar(LPCSTR pszAnsi,UINT codePage/* CP_ACP, CP_UTF8 */)
 {
 	ASSERTEXPR(pszAnsi);
+	if(!pszAnsi)
+		return(NULL);
 
-	int len = MultiByteToWideChar(CP_ACP,0,pszAnsi,-1,NULL,0);
-	if(len==0)
+	int len = MultiByteToWideChar(codePage,0,pszAnsi,-1,NULL,0);
+	if(len <= 0)
 		return(NULL);
 
 	wchar_t* pwszWide = (wchar_t*)calloc(len,sizeof(wchar_t));
 	if(!pwszWide)
 		return NULL;
 
-	if(MultiByteToWideChar(CP_ACP,0,pszAnsi,-1,pwszWide,len)==0)
+	if(MultiByteToWideChar(codePage,0,pszAnsi,-1,pwszWide,len)==0)
 	{
 		free(pwszWide);
 		return(NULL);
@@ -3322,25 +3343,80 @@ wchar_t* AnsiToWideChar(LPCSTR pszAnsi)
 	
 	Restituisce un puntatore alla stringa ANSI allocata che deve essere liberata con free() o NULL per errore.
 */
-LPSTR WideCharToAnsi(const wchar_t* pwszWide)
+LPSTR WideCharToAnsi(const wchar_t* pwszWide,UINT codePage/* CP_ACP, CP_UTF8 */)
 {
 	ASSERTEXPR(pwszWide);
+	if(!pwszWide)
+		return(NULL);
 
-    int len = WideCharToMultiByte(CP_ACP,0,pwszWide,-1,NULL,0,NULL,NULL);
-    if(len==0)
+	// il 2 e 8 parametro di WideCharToMultiByte() controllano il tipo di conversione e se e' avvenuta:
+	// WC_NO_BEST_FIT_CHARS e bUsedDefaultChar x evitare alterazioni silenzione del testo originale
+	// 0 e NULL x cambiare automaticamente al carattere piu' simile
+
+    int len = WideCharToMultiByte(codePage,0,pwszWide,-1,NULL,0,NULL,NULL);
+    if(len <= 0)
 		return(NULL);
     
 	char* pszAnsi = (char*)calloc(len,sizeof(char));
     if(!pszAnsi)
 		return(NULL);
     
-	if(WideCharToMultiByte(CP_ACP,0,pwszWide,-1,pszAnsi,len,NULL,NULL)==0)
+	if(WideCharToMultiByte(codePage,0,pwszWide,-1,pszAnsi,len,NULL,NULL)==0)
 	{
         free(pszAnsi);
         return(NULL);
     }
     
 	return(pszAnsi);
+}
+
+/*
+	wcscount()
+
+	Conta le occorrenze di un carattere nella stringa.
+*/
+int wcscount(LPCWSTR szString,LPCWSTR szChar)
+{
+	int count = 0;
+	LPCWSTR p = szString;
+	while((p = wcsstr(p,szChar))!=NULL)
+	{
+		count++;
+		p += wcslen(szChar);
+	}
+	return(count);
+}
+
+/*
+	wcsistr()
+
+	Come wcsstr(), pero' ignorando la differenza tra maiuscole e minuscole.
+*/
+wchar_t *wcsistr(const wchar_t *haystack,const wchar_t *needle)
+{
+	/* se needle e' vuoto, restituisce haystack (come fa wcsstr) */
+	if(*needle==L'\0')
+		return((wchar_t *)haystack);
+
+	/* scansiona ogni posizione di haystack */
+	for(const wchar_t *h = haystack; *h != L'\0'; h++)
+	{
+		const wchar_t *h2 = h;
+		const wchar_t *n  = needle;
+
+		/* confronta carattere per carattere in modo case-insensitive */
+		while(*n!=L'\0' && towlower((wint_t)*h2)==towlower((wint_t)*n))
+		{
+			h2++;
+			n++;
+		}
+
+		/* se ha consumato tutto needle, ha trovato la corrispondenza */
+		if(*n==L'\0')
+			return((wchar_t *)h);
+	}
+
+	return(NULL);
 }
 
 /*
@@ -3365,7 +3441,7 @@ UINT GetLineFromStdin(LPSTR lpszBuffer,UINT nSize)
 	if(len > 0 && lpszBuffer[len-1]=='\n')
 	{
 		lpszBuffer[len-1] = '\0';
-		return(strlen(lpszBuffer));
+		return((UINT)strlen(lpszBuffer));
 	}
 
 	/* se arriva qui, la riga era piu' lunga di 'size' ed il '\n' e' ancora nel buffer, lo pulisce */
@@ -3374,7 +3450,80 @@ UINT GetLineFromStdin(LPSTR lpszBuffer,UINT nSize)
 		;
     
 	/* controlla se l'input ha avuto successo (non EOF) */
-	return((c == EOF) ? 0 : strlen(lpszBuffer));
+	return((c == EOF) ? 0 : (UINT)strlen(lpszBuffer));
+}
+
+/*
+	ResetConsoleBuffer()
+
+	Reimposta il buffer per la console con i valori di default, assicurando la 
+	(ri)apparizione della barre di scrolling.
+*/
+void ResetConsoleBuffer(void)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	if(hConsole==INVALID_HANDLE_VALUE)
+		return;
+
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
+	if(GetConsoleScreenBufferInfo(hConsole,&csbi))
+	{
+		// imposta una dimensione buffer amplia
+		// quando le colonne del buffer (120) superano la larghezza della finestra
+		// attuale, la barra di scorrimento orizzontale appare immediatamente
+		COORD newSize = {120,9000};
+
+		// se la finestra corrente e' piu' grande del nuovo buffer, stringe prima
+		// la finestra per evitare il fallimento di SetConsoleScreenBufferSize()
+		if(csbi.srWindow.Right - csbi.srWindow.Left + 1 > newSize.X)
+		{
+			SMALL_RECT tmpRect = {0,0,newSize.X-1,csbi.srWindow.Bottom-csbi.srWindow.Top};
+			SetConsoleWindowInfo(hConsole,TRUE,&tmpRect);
+		}
+
+		SetConsoleScreenBufferSize(hConsole,newSize);
+	}
+}
+
+/*
+	InitConsoleGeometry()
+
+	Reinizializza il buffer per la console con i valori specificati, assicurando la 
+	(ri)apparizione della barre di scrolling.
+*/
+void InitConsoleGeometry(short nWidth,short nHeight)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	if(hConsole==INVALID_HANDLE_VALUE)
+		return;
+
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
+	if(GetConsoleScreenBufferInfo(hConsole,&csbi))
+	{
+		COORD newSize = {0};
+		newSize.X = nWidth;
+		newSize.Y = nHeight;
+
+		// se la finestra corrente fosse piu' grande del nuovo buffer che si vuole impostare,
+		// SetConsoleScreenBufferSize() fallirebbe, quindi rimpicciolisce prima la finestra temporaneamente
+		short nCurrentConsoleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+		short nCurrentConsoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+
+		if(nCurrentConsoleWidth > newSize.X || nCurrentConsoleHeight > newSize.Y)
+		{
+			SMALL_RECT rectTemporaneo;
+			rectTemporaneo.Left		= 0;
+			rectTemporaneo.Top		= 0;
+			rectTemporaneo.Right	= (nCurrentConsoleWidth > newSize.X) ? newSize.X - 1 : nCurrentConsoleWidth - 1;
+			rectTemporaneo.Bottom	= (nCurrentConsoleHeight > newSize.Y) ? newSize.Y - 1 : nCurrentConsoleHeight - 1;
+            
+			SetConsoleWindowInfo(hConsole,TRUE,&rectTemporaneo);
+	}
+
+	// imposta il buffer desiderato: se X e' maggiore della larghezza della
+	// finestra, la barra di scorrimento orizzontale riappare all'istante
+	SetConsoleScreenBufferSize(hConsole, newSize);
+	}
 }
 
 /*
@@ -3387,6 +3536,7 @@ UINT GetLineFromStdin(LPSTR lpszBuffer,UINT nSize)
  */
 ANSWER ConsolePromptYesOrNo(void)
 {
+	HWND hConsole = GetConsoleWindow();
 	HANDLE hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
@@ -3395,6 +3545,9 @@ ANSWER ConsolePromptYesOrNo(void)
     WORD wKey = 0;
     BOOL bContinue = TRUE;
     BOOL bYes = FALSE;
+
+	/* si assicura la visibilita' */
+	ShowWindow(hConsole,SW_RESTORE);
 
     /* svuota il buffer della tastiera, necessario per ReadConsoleInput() */
     FlushConsoleInputBuffer(hConsoleInput);
@@ -3464,6 +3617,7 @@ ANSWER ConsolePromptYesOrNo(void)
  */
 void ConsolePromptEnter(void)
 {
+	HWND hConsole = GetConsoleWindow();
 	HANDLE hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE hConsoleInput = GetStdHandle(STD_INPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
@@ -3472,6 +3626,9 @@ void ConsolePromptEnter(void)
     WORD wKey = 0;
     BOOL bContinue = TRUE;
     BOOL bYes = FALSE;
+
+	/* si assicura la visibilita' */
+	ShowWindow(hConsole,SW_RESTORE);
 
     /* svuota il buffer della tastiera, necessario per ReadConsoleInput() */
     FlushConsoleInputBuffer(hConsoleInput);
@@ -3654,9 +3811,9 @@ void SetCustomConsoleIcon(HICON* hOldIconSmall,HICON* hOldIconBig,UINT nIconID)
 		HICON hNewIcon = LoadIcon(GetModuleHandle(NULL),MAKEINTRESOURCE(nIconID));
 		if(hNewIcon)
 		{
-			// SendMessage() restituisce l'icona precedente, quindi la salva
-			*hOldIconSmall = (HICON)SendMessage(hwndConsole,WM_SETICON,ICON_SMALL,(LPARAM)hNewIcon);	// icona titolo
-			*hOldIconBig   = (HICON)SendMessage(hwndConsole,WM_SETICON,ICON_BIG,(LPARAM)hNewIcon);		// icona per Alt+Tab
+			/* SendMessage() restituisce l'icona precedente, quindi la salva */
+			*hOldIconSmall = (HICON)SendMessage(hwndConsole,WM_SETICON,ICON_SMALL,(LPARAM)hNewIcon);	/* icona titolo */
+			*hOldIconBig   = (HICON)SendMessage(hwndConsole,WM_SETICON,ICON_BIG,(LPARAM)hNewIcon);		/* icona per Alt+Tab */
 		}
 	}
 }
@@ -3671,7 +3828,7 @@ void RestoreConsoleIcon(HICON hOldIconSmall,HICON hOldIconBig)
 	HWND hwndConsole = GetConsoleWindow();
 	if(hwndConsole)
 	{
-		// ripristina le icone originali
+		/* ripristina le icone originali */
 		if(hOldIconSmall) 
 			SendMessage(hwndConsole,WM_SETICON,ICON_SMALL,(LPARAM)hOldIconSmall);
 		if(hOldIconBig)   
@@ -3709,7 +3866,7 @@ LPSTR GenerateUniqueRandomSalt(LPSTR lpszBuffer,UINT nSize)
 	snprintf(	szInternalBuffer,
 				sizeof(szInternalBuffer),
 				"%lld%ld%s",
-				unixTimeStamp(),								/* len = 10 */
+				unix_timestamp(),								/* len = 10 */
 				GetProcessId(GetCurrentProcess()),				/* len = 5 */
 				strwords(szWordBuffer,sizeof(szWordBuffer)-1)	/* len = 128 */
 				);												/* tot = 143 */

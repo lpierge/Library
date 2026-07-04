@@ -11,10 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <ctype.h>
 #include <time.h>
 #include <math.h>
 #include "algorithm.h"
+#include "fastrand.h"
 #include "typedef.h"
 #include "typeval.h"
 #include "strings.h"
@@ -119,12 +121,12 @@ char strfirst(const char* str,const char* chars)
 
 	char c,chr = 0;
 	const char* currentchar;
-	int n,previousn = strlen(str);
+	int n,previousn = (int)strlen(str);
 	while((c = *chars))
 	{
 		if((currentchar = strchr(str,c)))
 		{
-			n = currentchar - str;
+			n = (int)(currentchar - str);
 			if(n < previousn)
 			{
 				previousn = n;
@@ -226,7 +228,7 @@ char *strsep(char **str,const char *delim)
 */
 int strchkc(const char* str,const char* chrs)
 {
-	int len_str = strlen(str);
+	int len_str = (int)strlen(str);
 
 	for(int i=0; i < len_str; i++)
 		if(!strchr(chrs,str[i]))
@@ -244,7 +246,7 @@ int strchkc(const char* str,const char* chrs)
 */
 int strchks(const char* str,const char** ptrarray,size_t arraysize)
 {
-	int len_str = strlen(str);
+	int len_str = (int)strlen(str);
 	int found = 0;
 	for(int i=0; i < (int)arraysize; i++)
 		if(strcmp(str,ptrarray[i])==0)
@@ -452,7 +454,7 @@ char* strcpyn(char* dst,const char* src,size_t size)
     ASSERTEXPR(src);
     ASSERTEXPR(size > 0);
 
-	/* il seguente blocco (commentato) per scovare l'uso non ortodosso della funzione, ossia quando si usa per copiare troncando a <n> caratteri */
+	/* scommentare il seguente blocco per scovare l'uso non ortodosso della funzione, ossia quando si usa per copiare troncando a <n> caratteri */
 /*	#ifdef _DEBUG
 	{
 	  size_t src_len = strlen(src);
@@ -464,8 +466,13 @@ char* strcpyn(char* dst,const char* src,size_t size)
 	}
 	#endif
 */
-	if((size <= 0) || (!src || !*src))
+	if(size <= 0)
 		return(dst);
+	if(!src || !*src)
+	{
+		memset(dst,0,size);
+		return(dst);
+	}
 
 	size_t src_len = strlen(src);
 	size_t copy_len = src_len < (size - 1) ? src_len : (size - 1);
@@ -596,8 +603,8 @@ char* strcatn(char* dst,const char *src,size_t size)
 {
 	ASSERTEXPR(dst);
 	ASSERTEXPR(src);
-	ASSERTEXPR(strlen(dst) + strlen(src) < size);
 	ASSERTEXPR(size > 0);
+	ASSERTEXPR(strlen(dst) + strlen(src) < size);
 
 	size_t dst_len = strlen(dst);
     size_t src_len = strlen(src);
@@ -984,7 +991,7 @@ char* substrn(const char* string,size_t pos,size_t len,const char* replace)
  
     if (string == NULL)
         return NULL;
-    length = strlen(string);
+    length = (int)strlen(string);
     if (pos < 0) {
         pos = length + pos;
         if (pos < 0) pos = 0;
@@ -1014,6 +1021,72 @@ char* substrn(const char* string,size_t pos,size_t len,const char* replace)
     }
  
     return substring;
+}
+
+/*
+	strtokargs()
+
+	Suddivide in tokens come con strtok(), pero' con la possibilita' di gestire tokens che includano il
+	separatore stesso, sempre e quando vengano circoscritti con un "inclusore".
+	Funzionamento e dinamica esattamente uguali a strtok(), includendo il modo in cui va chiamata.
+
+	Esempi:
+	<"esci fuori" disse giocando a nascondino>
+	la frase puo' essere tokenizzata usando lo spazio e la citazione "esci fuori" viene considerata come
+	token unico grazie all'uso del doppio apice come inclusore
+	<-d"C:\Users\lpier\Documents\Luca\Pictures\2D\Artisti\Otto Schmidt\Black Cat" -r>
+	la linea di comando, contenente nomi file che includono spazi, viene scomposta in due token in base allo
+	spazio grazie  all'uso del doppio apice come inclusore
+*/
+char* strtokargs(char* str,const char separator,const char inclusor)
+{
+	// statica per preservare lo stato tra le chiamate successive
+	static char* next_token = NULL;
+
+	// se viene passata una nuova stringa, reinizializza il puntatore
+	if(str!=NULL)
+		next_token = str;
+
+	// se arriva alla fine della stringa nelle chiamate precedenti
+	if(next_token==NULL || *next_token=='\0')
+		return(NULL);
+
+	// prima fase: salta i separatori iniziali
+	// all'inizio sara' sicuramente fuori dagli inclusori
+	while(*next_token && *next_token==separator)
+		next_token++;
+
+	// se dopo aver saltato i separatori arriva a fine stringa, significa che non ci sono piu' token
+	if(*next_token=='\0')
+		return(NULL);
+
+	// ha trovato l'inizio del token
+	char* token_start = next_token;
+	int inside_inclusor = 0;
+
+	// seconda fase: scansione del token
+	while(*next_token)
+	{
+		// se trova un inclusore, inverte lo stato
+		if(*next_token==inclusor)
+		{
+			inside_inclusor = !inside_inclusor;
+		}
+		// se trova un separatore e sta fuori dagli inclusori, il token e' finito
+		else if(*next_token==separator && !inside_inclusor)
+		{
+			*next_token = '\0'; // spezza la stringa in-place
+			next_token++;       // posiziona il puntatore per la prossima chiamata
+			return(token_start);
+		}
+
+		next_token++;
+	}
+
+	// se arriva qui, significa che e' arrivato a fine stringa ('\0')
+	// gestisce automaticamente anche il caso dell'inclusore non bilanciato,
+	// restituendo tutto quello che e' rimasto, fino alla fine
+	return(token_start);
 }
 
 /*
@@ -1098,7 +1171,7 @@ char* strshuffle(char *string)
     size_t n = strlen(string);
     for(size_t i = n - 1; i > 0; --i)
 	{
-        size_t j = fast_rand_range(i + 1);
+        size_t j = fast_rand_range((unsigned int)i + 1);
         char tmp = string[i];
         string[i] = string[j];
         string[j] = tmp;
@@ -1223,6 +1296,7 @@ int strempty(const char* str)
     /* stringa vuota, sono stati trovati solo spazi o la stringa iniziava con '\0' */
     return(1);
 }
+
 /*
 	strrtrim()
 
@@ -1357,11 +1431,13 @@ size_t stralltrim(char* str)
 
 	Elimina gli spazi iniziali e finali della stringa (non tocca gli interni).
 
-	Restituisce la nuova lunghezza della stringa.
+	Restituisce il puntatore alla stringa. //la nuova lunghezza della stringa.
 */
 char* /*size_t*/ stroutrim(char* str)
 {
 	ASSERTEXPR(str);
+	if(!str)
+		return(NULL);
 
 	char* read_ptr = str;
 	char* write_ptr = str;
@@ -1736,7 +1812,7 @@ static void fmtIntDE(long long v, char *out, size_t outSize)
     char tmp[40];
     int  len, j = 0, digits = 0;
 
-    len = snprintf(tmp, sizeof(tmp), "%lld", v);
+    len = wtfsnprintf(tmp, sizeof(tmp), "%lld", v);
     for (int i = len - 1; i >= 0; --i) {
         out[j++] = tmp[i];
         if (++digits % 3 == 0 && i) out[j++] = '.';
@@ -1874,6 +1950,61 @@ char* strdupl(const char* str)
 }
 
 /*
+	wtfsnprintf()
+	
+	La snprintf() di sempre, pero' versione WTF, ossia come la cultura woke ti cambia le carte in tavola da un giorno all'altro, facendoti
+	credere che oggigiorno, dopo averlo preso nel didietro, bisogna essere contenti e ringraziare.
+
+	Secondo la pagina ufficiale documentazione IBM:
+	https://www.ibm.com/docs/en/i/7.5.0?topic=functions-snprintf-print-formatted-data-buffer
+	riporto citazione letterale:
+	"Return Value: The snprintf() function returns the number of bytes that are written in the array, not counting the ending null character."
+
+	Tale pagina della documentazione si riferisce all'ambiente IBM OS/400, che implementava snprintf (o varianti non standard come _snprintf)
+	seguendo il comportamento dello standard ANSI C89/C90 o delle prime estensioni POSIX. Prima dello standard C99, sui vecchi sistemi, e su 
+	Windows con Visual Studio (fino a Visual Studio 2013), la funzione normalmente si chiamava _snprintf e restituiva effettivamente il numero
+	di caratteri scritti, oppure -1 se il buffer non era abbastanza grande.
+
+	Con lo standard C99, il comitato woke, formato da individui che ovviamente non scrivono codice, ma solo scartabellano, decise di uniformare
+	il comportamento su tutte le piattaforme (Linux, Windows, macOS), decretando che snprintf doveva restituire i caratteri che "avrebbe voluto"
+	scrivere (tipico di come pensano i gay). Visual Studio si adeguo' a tale standard a partire dalla versione 2015.
+
+	Ecco quindi una versione mapigliongulo della snprintf, cosi' come e' sempre stata e sempre sara', restituiendo il numero di caratteri che
+	vengono "effettivamente" scritti nel buffer.
+
+	Versione "sensata" di snprintf.
+	Scrive massimo (n-1) caratteri nel buffer, aggiunge sempre '\0', e restituisce il numero di caratteri effettivamente scritti (escluso '\0').
+	Se n==0, non scrive nulla (nemmeno '\0') e restituisce 0.
+	Se c'e' errore di formattazione, restituisce -1.
+ */
+int wtfsnprintf(char *buf,size_t n,const char *fmt,...)
+{
+	int ret;
+	va_list ap;
+
+	if(n==0)
+		return(0); /* non c'e' piu' spazio */
+
+	va_start(ap,fmt);
+	ret = vsnprintf(buf,n,fmt,ap);
+	va_end(ap);
+
+	if(ret < 0)
+		return(-1); /* errore interno di formattazione */
+
+	/* 
+	vsnprintf restituisce quanti caratteri "avrebbe voluto" scrivere, qui basicamente controlla il suo 
+	valore di ritorno e lo "corregge" per restituire solo cio' che e' effettivamente entrato nel buffer
+	se e' >= n, ha troncato e scritto solo (n-1) caratteri + '\0'
+	se e' < n, ha scritto tutto (ret caratteri + '\0')
+	*/
+	if((size_t)ret >= n)
+		return((int)(n - 1)); /* troncato: effettivi sono n-1 */
+	
+	return(ret); /* e' entrato tutto... */
+}
+
+/*
 	ltos(), ultos(), dtos(), ftos(), qwtos()
 
 	Convertono il numero in stringa formattata e ne restituiscono il puntatore.
@@ -1992,7 +2123,7 @@ char* _ntos(NUMBER_T* n,char* str,size_t size)
 	if(*fractional_str)
 	{
 		size_t len = strlen(str);
-        snprintf(str + len, size - len, ".%s", fractional_str);
+        wtfsnprintf(str + len, size - len, ".%s", fractional_str);
 	}
 
 	return(str);
@@ -2048,12 +2179,39 @@ char* qwtos(QWORD num,char* str,size_t size)
 	return(_ntos(&n,str,size));
 }
 
+#define CHECK_ASCII(c)		(c >= 0 && c <= 127)
+#define CHECK_ANSIEXT(c)	(c >= 128 && c <= 255)
+
+bool is_all_ascii(const char* str)
+{
+	while(*str)
+	{
+		if(!CHECK_ASCII(*str))
+			return(false);
+		str++;
+	}
+
+	return(true);
+}
+
+bool has_ansi_ext(const char* str)
+{
+	while(*str)
+	{
+		if(CHECK_ANSIEXT(*str))
+			return(true);
+		str++;
+	}
+
+	return(false);
+}
+
 /*
-	replace_non_ANSI()
+	replace_non_ansi()
 
 	Sostituisce i caratteri non ANSI con quello specificato.
 */
-void replace_non_ANSI(char *str,char chr)
+void replace_non_ansi(char *str,char chr)
 {
 	ASSERTEXPR(str);
 	ASSERTEXPR(isprint(chr));
@@ -2074,11 +2232,11 @@ void replace_non_ANSI(char *str,char chr)
 }
 
 /*
-	replace_non_ASCII()
+	replace_non_ascii()
 
 	Sostituisce i caratteri non ASCII con quello specificato.
 */
-void replace_non_ASCII(char *str,char chr)
+void replace_non_ascii(char *str,char chr)
 {
 	ASSERTEXPR(str);
 	ASSERTEXPR(isascii(chr));
@@ -2099,11 +2257,11 @@ void replace_non_ASCII(char *str,char chr)
 }
 
 /*
-	delete_non_ANSI()
+	delete_non_ansi()
 
 	Elimina i caratteri non ANSI.
 */
-void delete_non_ANSI(char *str)
+void delete_non_ansi(char *str)
 {
 	ASSERTEXPR(str);
 
@@ -2127,11 +2285,11 @@ void delete_non_ANSI(char *str)
 }
 
 /*
-	delete_non_ASCII()
+	delete_non_ascii()
 
 	Elimina i caratteri non ASCII.
 */
-void delete_non_ASCII(char *str)
+void delete_non_ascii(char *str)
 {
 	ASSERTEXPR(str);
 

@@ -12,6 +12,7 @@
 #include <string.h>
 #include "strings.h"
 #include "window.h"
+#include <wchar.h>
 #include "win32api.h"
 #include "CFilenameFactory.h"
 
@@ -197,6 +198,178 @@ onlyfile:
 }
 
 /*
+	AbbreviateW()
+	
+	Accorcia il pathname/nomefile a fini estetici (Versione Wide).
+	Solo per path con nomi file MS-DOS, non per path Unix o per URLs.
+*/
+LPCWSTR CFilenameFactory::AbbreviateW(	LPCWSTR	lpcwszFilename,
+										int		nMaxLength,		/* = ABBREVIATE_MAX_FNAME */
+										BOOL	bSaveExt,		/* = FALSE */
+										BOOL	bStripPath,		/* = TRUE */
+										LPCWSTR	pDefaultString,	/* = NULL */
+										LPWSTR	pFilename,		/* = NULL */
+										UINT	nFilenameSize	/* = 0 */
+										)
+{
+	ASSERTEXPR(lpcwszFilename);
+	if(!lpcwszFilename)
+		return(pFilename);
+
+	// solo per path con nomi file MS-DOS, non per path Unix o per URLs
+	if(wcschr(lpcwszFilename,L'/'))
+		return(pFilename);
+
+	wchar_t* p;
+	wchar_t szFileName[_MAX_FILEPATH+1] = {0};
+	wchar_t szExt[_MAX_FILEPATH+1] = {0};
+
+	// se deve eliminare il path dal nome file
+	if(bStripPath)
+	{
+		p = (wchar_t*)wcsrchr(lpcwszFilename,L'\\');
+		if(p)
+			p++;
+		if(!p)
+			p = (wchar_t*)lpcwszFilename;
+		
+		wcsncpy(szFileName, p, sizeof(szFileName) / sizeof(wchar_t));
+		szFileName[(sizeof(szFileName) / sizeof(wchar_t)) - 1] = L'\0';
+	}
+	else
+	{
+		wcsncpy(szFileName, lpcwszFilename, sizeof(szFileName) / sizeof(wchar_t));
+		szFileName[(sizeof(szFileName) / sizeof(wchar_t)) - 1] = L'\0';
+	}
+
+	// imposta la stringa per l'abbreviazione
+	if(!pDefaultString)
+		pDefaultString = ABBREVIATE_DEFAULT_STRINGW; // es: L"[...]"
+
+	// ricava (e fa fuori dal nome) l'estensione del file
+	if(bSaveExt)
+	{
+		p = wcsrchr(szFileName, L'.');
+		if(p)
+		{
+			wcsncpy(szExt, p, sizeof(szExt) / sizeof(wchar_t));
+			szExt[(sizeof(szExt) / sizeof(wchar_t)) - 1] = L'\0';
+			*p = L'\0';
+		}
+	}
+
+	// se == 0 non fa nulla, se il valore e' > 0 accorcia alla fine e se e' < 0 accorcia 
+	// tra gli ultimi due backslash se presenti (un subpath) o alla fine in caso contrario
+	if(nMaxLength==0)
+	{
+		; // la unica utilita' e' per eliminare il path, vedi sopra
+	}
+	else if(nMaxLength > 0)
+	{
+onlyfile:
+		// se la lunghezza totale (nome+ext) sfora il limite
+		if((int)(wcslen(szFileName) + wcslen(szExt)) > nMaxLength)
+		{
+			int n = wcslen(pDefaultString);
+			
+			// copia la stringa per l'abbreviazione troncando il nome file alla lunghezza desiderata
+			memcpy(szFileName + (nMaxLength - (n + wcslen(szExt))), pDefaultString, n * sizeof(wchar_t));
+			szFileName[nMaxLength - wcslen(szExt)] = L'\0';
+			
+			n = wcslen(szFileName);
+			if(*szExt)
+			{
+				_snwprintf(szFileName + n, (sizeof(szFileName) / sizeof(wchar_t)) - n, L"%s", szExt);
+				szFileName[(sizeof(szFileName) / sizeof(wchar_t)) - 1] = L'\0';
+			}
+		}
+		else // nessuno sforamento, riattacca l'estensione
+		{
+			if(*szExt)
+				wcsncat(szFileName, szExt, (sizeof(szFileName) / sizeof(wchar_t)) - wcslen(szFileName) - 1);
+		}
+	}
+	else if(nMaxLength < 0)
+	{
+		// rimette in positivo per poter controllare la lunghezza max
+		nMaxLength *= -1;
+
+		if((int)(wcslen(szFileName) + wcslen(szExt)) > nMaxLength)
+		{
+			// divide il nome file in path e file
+			wchar_t szName[_MAX_FILEPATH+1] = {0};
+			wchar_t szPath[_MAX_FILEPATH+1] = {0};
+			wcsncpy(szPath, szFileName, sizeof(szPath) / sizeof(wchar_t));
+			szPath[(sizeof(szPath) / sizeof(wchar_t)) - 1] = L'\0';
+			
+			wchar_t* p = wcsrchr(szPath, L'\\');
+			if(p)
+			{
+				wcsncpy(szName, p + 1, sizeof(szName) / sizeof(wchar_t));
+				szName[(sizeof(szName) / sizeof(wchar_t)) - 1] = L'\0';
+				*p = L'\0';
+			}
+			else // il nome file non contiene nessun path
+			{
+				memset(szPath, 0, sizeof(szPath));
+				wcsncpy(szName, szFileName, sizeof(szName) / sizeof(wchar_t));
+				szName[(sizeof(szName) / sizeof(wchar_t)) - 1] = L'\0';
+			}
+
+			// inizia ad eliminare i subpath a partire da destra
+			// controlla che il nome da solo non ecceda la lunghezza massima, esclude del tutto l'eventuale
+			// path e salta al codice per troncare direttamente il nome file
+			if((int)(wcslen(szName) + wcslen(pDefaultString) + wcslen(szExt) + 2) <= nMaxLength)
+			{
+	looop:		// elimina fino a che esistono almeno due backslash
+				int bs = wcscount(szPath,L"\\");
+				if(bs >= 2)
+				{
+					p = wcsrchr(szPath,L'\\');
+					if(p)
+					{
+						*p = L'\0';
+						if((int)(wcslen(szPath) + wcslen(pDefaultString) + wcslen(szName) + wcslen(szExt)) > nMaxLength)
+							goto looop;
+					}
+				}
+
+				// ricompone il nome file accorciato
+				_snwprintf(szFileName, sizeof(szFileName) / sizeof(wchar_t), L"%s\\%s\\%s%s", szPath, pDefaultString, szName, szExt);
+				szFileName[(sizeof(szFileName) / sizeof(wchar_t)) - 1] = L'\0';
+			}
+			else // gia' il solo nome file sfora, salta diretto ad accorciare, non considera il path
+			{
+				wcsncpy(szFileName, szName, sizeof(szFileName) / sizeof(wchar_t));
+				szFileName[(sizeof(szFileName) / sizeof(wchar_t)) - 1] = L'\0';
+				goto onlyfile;
+			}
+		}
+		else // nessuno sforamento, riattacca l'estensione
+		{
+			if(*szExt)
+			{
+				wcsncat(szFileName, szExt, (sizeof(szFileName) / sizeof(wchar_t)) - wcslen(szFileName) - 1);
+			}
+		}
+	}
+
+	// se non viene passato un buffer di output per il nuovo nome file, usa e restituisce il membro della classe
+	LPWSTR pOutputBuffer = pFilename;
+	UINT nOutputSize = nFilenameSize; // Passato in caratteri
+	if(!pOutputBuffer || nOutputSize==0)
+	{
+		pOutputBuffer = m_szFileNameW;
+		nOutputSize = sizeof(m_szFileNameW) / sizeof(wchar_t);
+	}
+
+	wcsncpy(pOutputBuffer, szFileName, nOutputSize);
+	pOutputBuffer[nOutputSize - 1] = L'\0';
+
+	return(pOutputBuffer);
+}
+
+/*
 	GetNext()
 
 	Costruisce un nuovo nomefile, aggiungendo un progressivo numerico (a base 1) al nome gia' esistente.
@@ -244,7 +417,7 @@ LPCSTR CFilenameFactory::GetNext(LPCSTR lpcszFilename,LPCSTR lpcszPathname/* = N
 				*p = '\0';
 			}
 			n = strlen(szFileName);
-			snprintf(szFileName+n,sizeof(szFileName)-n," (%d)%s",++i,szExt);
+			wtfsnprintf(szFileName+n,sizeof(szFileName)-n," (%d)%s",++i,szExt);
 		} while(FileExists(szFileName));
 
 		strcpyn(pOutputBuffer,szFileName,nOutputSize);

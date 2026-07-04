@@ -79,30 +79,32 @@ BOOL CBinFile::Open(LPCSTR	lpcszFileName,
 }
 
 /*
-	OpenMode()
+	OpenEx()
 
-	Apre il file permettendo di specificare il modo:
+	Apre il file permettendo di specificare il modo.
+
+	Estratto dalla documentazione M$:
 
 	CREATE_ALWAYS		Crea sempre un nuovo file.
-						Se il file specificato esiste ed è scrivibile, la funzione tronca il file, la funzione ha esito positivo e il codice dell'ultimo errore viene impostato su ERROR_ALREADY_EXISTS (183).
-						Se il file specificato non esiste ed è un percorso valido, viene creato un nuovo file, la funzione ha esito positivo e l'ultimo codice di errore è impostato su zero.
+						Se il file specificato esiste ed e' scrivibile, la funzione tronca il file, la funzione ha esito positivo e il codice dell'ultimo errore viene impostato su ERROR_ALREADY_EXISTS (183).
+						Se il file specificato non esiste ed e' un percorso valido, viene creato un nuovo file, la funzione ha esito positivo e l'ultimo codice di errore e' impostato su zero.
 
-	CREATE_NEW			Crea un nuovo file, solo se non esiste già.
+	CREATE_NEW			Crea un nuovo file, solo se non esiste gia'.
 						Se il file specificato esiste, la funzione ha esito negativo e l'ultimo codice di errore viene impostato su ERROR_FILE_EXISTS (80).
-						Se il file specificato non esiste ed è un percorso valido per un percorso scrivibile, viene creato un nuovo file.
+						Se il file specificato non esiste ed e' un percorso valido per un percorso scrivibile, viene creato un nuovo file.
 
 	OPEN_ALWAYS			Apre sempre un file.
 						Se il file specificato esiste, la funzione ha esito positivo e l'ultimo codice di errore viene impostato su ERROR_ALREADY_EXISTS (183).
-						Se il file specificato non esiste ed è un percorso valido per un percorso scrivibile, la funzione crea un file e l'ultimo codice di errore è impostato su zero.
+						Se il file specificato non esiste ed e'un percorso valido per un percorso scrivibile, la funzione crea un file e l'ultimo codice di errore e'impostato su zero.
 	
 	OPEN_EXISTING		Apre un file o un dispositivo, solo se esiste.
-						Se il file o il dispositivo specificato non esiste, la funzione ha esito negativo e l'ultimo codice di errore è impostato su ERROR_FILE_NOT_FOUND (2).
+						Se il file o il dispositivo specificato non esiste, la funzione ha esito negativo e l'ultimo codice di errore e' impostato su ERROR_FILE_NOT_FOUND (2).
 
 	TRUNCATE_EXISTING	Apre un file e lo tronca in modo che le dimensioni siano pari a zero byte, solo se esiste.
-						Se il file specificato non esiste, la funzione ha esito negativo e l'ultimo codice di errore è impostato su ERROR_FILE_NOT_FOUND (2).
+						Se il file specificato non esiste, la funzione ha esito negativo e l'ultimo codice di errore e' impostato su ERROR_FILE_NOT_FOUND (2).
 						Il processo chiamante deve aprire il file con il bit GENERIC_WRITE impostato come parte del parametro dwDesiredAccess.
 */
-BOOL CBinFile::OpenMode(LPCSTR	lpcszFileName,
+BOOL CBinFile::OpenEx(LPCSTR	lpcszFileName,
 						DWORD	dwMode				/* = OPEN_EXISTING */,
 						DWORD	dwAccessMode		/* = GENERIC_READ|GENERIC_WRITE */,
 						DWORD	dwShareMode			/* = FILE_SHARE */
@@ -477,7 +479,7 @@ void CBinFile::SetLastErrorCode(DWORD dwError)
 	if(m_bShowErrors)
 	{
 		char szError[1024] = {0};
-		snprintf(szError,sizeof(szError),"%s:\n%s",m_szFileName,m_szError);
+		snprintf(szError,sizeof(szError),"%s:\n%s (%ld)",m_szFileName,m_szError,m_dwError);
 		::MessageBox(NULL,szError,"CBinFile::SetLastErrorCode()",MB_OK|MB_ICONERROR|MB_TASKMODAL|MB_SETFOREGROUND|MB_TOPMOST);
 	}
 }
