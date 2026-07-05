@@ -1,6 +1,7 @@
 This repository is for C/C++ source (.c/.cpp) files shared across multiple projects.
 
 **Important note on projects structure:**
+
 The Visual Studio projects I use are hardcoded to search for dependencies using absolute paths, starting from the root of a virtual L: drive. The expected directory structure for this repository is:
 
 ```text
