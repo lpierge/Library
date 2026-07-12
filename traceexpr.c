@@ -9,6 +9,7 @@
 
 #include "pragma.h"
 #include "env.h"
+#include "macro.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -90,7 +91,7 @@ DWORD GetCurrentProcessIdAndName(TCHAR* pszNameBuffer,DWORD dwNameSize)
 	1) La gestione multithread, che si risolve con l'uso della sezione critica.
 	2) La gestione della chiamata automatica delle due funzioni trace_init() e trace_term(),
 	   per ovviare all'eventuale problema dell'inizializzazione/terminazione della sezione
-	   critica se chi usa il codice di TRACE non chiama tali funzioni
+	   critica se chi usa il codice di TRACE e' un cazzone e non chiama tali funzioni
 */
 
 // mettere qui le forward declarations

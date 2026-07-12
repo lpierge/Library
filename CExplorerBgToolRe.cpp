@@ -8,6 +8,7 @@
 */
 #include "pragma.h"
 #include "env.h"
+#include "macro.h"
 #include "typedef.h"
 #include "window.h"
 #include "win32api.h"
@@ -18,12 +19,13 @@
 #include <tlhelp32.h>
 #pragma comment(lib, "Kernel32.lib")
 #include "CExplorerBgToolRe.h"
+#include "L:/ExplorerBgToolRe/ExplorerBgToolRe.h"
 
 /*
 	IsProcessRunning()
 
 	Verifica se il processo specificato e' in esecuzione.
-	(forma parte della classe ma in realta' potrebbe essere benissimo stand-alone)
+	(inserito qui nel codice della classe ma andrebbe portata fuori stand-alone)
 
 	Parametri:
 		[in]  pcwzProcessName: nome dell'eseguibile (es. "notepad.exe"), puo' includere
@@ -74,12 +76,12 @@ BOOL IsProcessRunning(const wchar_t* pcwzProcessName)
 /*
 	GetDllPathByCLSID()
 
-	Cerca nel registro il CLSID in formato stringa e restituisce, se rtovato, il percorso completo della 
-	DLL registrata sotto la chiave InprocServer32.
-	(forma parte della classe ma in realta' potrebbe essere benissimo stand-alone)
+	Cerca nel registro il CLSID in formato stringa e restituisce, se trovato, il percorso completo 
+	della DLL registrata sotto la chiave InprocServer32.
+	(inserito qui nel codice della classe ma andrebbe portata fuori stand-alone)
 
 	Parametri:
-		[in]  pcwzCLSID      : stringa del CLSID (es. L"{ED15A97D-FE3E-4CDE-98FF-BC46B02896B0}")
+		[in]  pcwzCLSID      : stringa per il CLSID
 		[out] wzDllPathBuffer: buffer che ricevera' il percorso completo della DLL
 		[in]  dwBufferSize   : dimensione del buffer espressa in caratteri (wchar_t)
 
@@ -116,8 +118,8 @@ BOOL GetDllPathByCLSID(const wchar_t* pcwzCLSID,wchar_t* wzDllPathBuffer,DWORD d
 	return(FALSE);
 }
 
-// la costante CLSID per la DLL (ripresa dal progetto originale)
-const wchar_t* CExplorerBgToolRe::CLSID_EXPLORERBGTOOL = L"{ED15A97D-FE3E-4CDE-98FF-BC46B02896B0}";
+// la costante CLSID per la DLL
+const wchar_t* CExplorerBgToolRe::CLSID_EXPLORERBGTOOL = _L(EXPLORERBGTOOL_CLSID);
 
 /*
 	CExplorerBgToolRe()
@@ -134,6 +136,28 @@ CExplorerBgToolRe::CExplorerBgToolRe()
 CExplorerBgToolRe::~CExplorerBgToolRe()
 {
     UnloadDll();
+}
+
+/*
+	GetVersion()
+*/
+HRESULT CExplorerBgToolRe::GetVersion(const wchar_t* pcwzDllPath,int& major,int& minor,int& patch)
+{
+	// definisce il tipo della funzione DllVersion()
+	typedef HRESULT (WINAPI *DllVersion)(int& major,int& minor,int& patch);
+
+	// carica la DLL ed ottiene la funzione
+	FARPROC proc = LoadFunction(pcwzDllPath,"DllVersion");
+	if(proc==NULL)
+		return(E_FAIL);
+
+	// casta il puntatore al tipo corretto
+	DllVersion pDllVersion = (DllVersion)proc;
+
+	// chiama la funzione per ricavare la versione corrente
+	HRESULT hr = pDllVersion(major,minor,patch);
+
+	return(hr);
 }
 
 /*
@@ -215,11 +239,11 @@ HRESULT CExplorerBgToolRe::Unregister(void)
 		return(S_OK);
 
 #if 0
-	// il file della DLL esiste realmente o e' un fantasma?
+	// il file esiste veramente su disco o e' un fantasma?
 	if(::GetFileAttributesW(wzDllPath)==INVALID_FILE_ATTRIBUTES)
 		return(HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND));
 #else
-	// controlla se il file esiste veramente su disco
+	// il file esiste veramente su disco o e' un fantasma?
 	DWORD dwAttrib = ::GetFileAttributesW(wzDllPath);
 	if(dwAttrib==INVALID_FILE_ATTRIBUTES) // && GetLastError()==ERROR_FILE_NOT_FOUND)
 	{
@@ -256,7 +280,8 @@ HRESULT CExplorerBgToolRe::Unregister(void)
 	In altre parole, il controllo NON e' per sapere se la DLL e' registrata o meno in assoluto, ma
 	per verificare se il sistema e' configurato per caricare proprio la DLL specificata in input.
 
-	Restituisce True se registrata, False altrimenti o Undef se registrata ma con nome file/percorso differente.
+	Restituisce True se registrata, False altrimenti o Undef se registrata ma con nome file/percorso
+	differente.
 */
 TERN CExplorerBgToolRe::IsRegistered(const wchar_t* pcwzDllPath)
 {
@@ -304,18 +329,16 @@ TERN CExplorerBgToolRe::IsRegistered(const wchar_t* pcwzDllPath)
 	Restituisce TRUE se registrata e se il file relativo (DLL) esiste realmente, FALSE se non registrata o se il
 	file (DLL) associato e' un fantasma.
 */
-BOOL CExplorerBgToolRe::IsRegistered(wchar_t* pwzDllPath,size_t nSize) 
+TERN CExplorerBgToolRe::IsRegistered(wchar_t* pwzDllPath,size_t nSize) 
 {
 	wchar_t wzRegisteredPath[_MAX_PATH+1] = {0};
 	if(!GetDllPathByCLSID(CLSID_EXPLORERBGTOOL,wzRegisteredPath,MAX_PATH))
-		return(FALSE);
+		return(False);
 
 	wcscpy_s(pwzDllPath,nSize,wzRegisteredPath);
 
 	// il file della DLL esiste realmente o e' un fantasma?
-	BOOL bExist = ::GetFileAttributesW(wzRegisteredPath)!=INVALID_FILE_ATTRIBUTES;
-
-	return(bExist);
+	return(::GetFileAttributesW(wzRegisteredPath)==INVALID_FILE_ATTRIBUTES ? False : True);
 }
 
 /*
@@ -369,8 +392,10 @@ BOOL CExplorerBgToolRe::IsAdmin(void)
 	ma sulle versioni moderne (Windows 10/11) ci sono spesso piu' istanze di explorer.exe (taskbar + finestre di
 	cartelle separate o processi figli). Se l'istanza che viene uccisa NON e' quella che tiene la DLL mappata in
 	memoria, il file della DLL resta bloccato.
+
 	Oltre al fatto che TerminateProcess() e' asincrona, per cui l'istanza che e' stata uccisa potrebbe non essere
 	completamente morta quando si passa a manipolare il file della DLL.
+
 	Bisogna quindi terminare tutte le istanze di Explorer, aspettare che siano effettivamente terminate (polling 
 	dello snapshot) e solo alla fine manipolare il file della DLL e rilanciare l'explorer.exe.
 */

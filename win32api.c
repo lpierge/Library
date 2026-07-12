@@ -2715,9 +2715,9 @@ LPCSTR EnsureValidFileName(LPCSTR lpcszFileName,LPSTR lpszNewName,UINT cbNewName
 	Verifica se gia' esiste un file con lo stesso nome, nel caso restituisce il nome con un progressivo numerico 
 	incrementato ("name.ext" -> "name (n).ext") in modo che il chiamante eviti sovrascrivere la versione precedente.
 	Incremento limitato a INT_MAX.
-	Funzionalmente come la GetNext() in CFilenameFactory.cpp.
+	Funzionalmente uguale alla GetNext() in CFilenameFactory.cpp.
 
-	Restituisce il puntatore al nuovo nome file, o NULL se fallisce.
+	Restituisce il puntatore al nuovo nome file, o NULL se il file non esiste o fallisce.
 */
 LPSTR YetAnotherFileName(LPCSTR lpcszFileName,LPSTR lpszNewName,UINT nNewNameSize)
 {

@@ -826,7 +826,7 @@ BOOL CHttpDownloader::DownloadUrl(LPSTR lpszUrl,UINT nUrlSize,LPSTR lpszOutputfi
 			DWORD dwFilesize = 0L;
 			BOOL bUrlExists = GetFileByUrl(lpszUrl,szFilename,sizeof(szFilename),szLastModified,sizeof(szLastModified),szETag,sizeof(szETag),szContentType,sizeof(szContentType),dwFilesize);
 
-			// toppa grande
+			//$ toppa grande
 			if(strempty(szContentType))
 			{
 				ASSERTEXPR(szContentType[0]!=' ');
