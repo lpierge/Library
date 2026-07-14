@@ -521,7 +521,7 @@ BOOL CFilenameFactory::GetNextWithinRange(LPCSTR lpcszFilename,UINT nMaxProg,LPS
         if(GetFileLastTime(candidatePath,&ft))
 		{
             // restituisce -1 se ft < oldestTime (ft e' piu' vecchio)
-            if(CompareFileTime(&ft,&oldestTime) < 0)
+            if(::CompareFileTime(&ft,&oldestTime) < 0)
 			{
                 oldestTime = ft;
                 oldestIndex = i;

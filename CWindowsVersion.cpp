@@ -76,7 +76,7 @@ CWindowsVersion::CWindowsVersion()
 	{
 		// versione OS
 		// occhio alla ::GetWindowsVersion() sta' in win32api.cpp
-		switch((m_OsVersionType = ::GetWindowsVersion(m_szWindowsPlatform,sizeof(m_szWindowsPlatform),&m_dwMajorVersion,&m_dwMinorVersion)))
+		switch((m_OsVersionType = GetWindowsVersion(m_szWindowsPlatform,sizeof(m_szWindowsPlatform),&m_dwMajorVersion,&m_dwMinorVersion)))
 		{
 			case WINDOWS_31:
 				strcpyn(m_szOsType,"3.1",sizeof(m_szOsType));
@@ -122,7 +122,7 @@ CWindowsVersion::CWindowsVersion()
 		}
 
 		// versione dll per i controlli
-		m_dwCommonControlsDllVersion = ::GetDllVersion("comctl32.dll");
+		m_dwCommonControlsDllVersion = GetDllVersion("comctl32.dll");
 	}
 
 	// per far caricare la DLL alla classe relativa solo quando serve

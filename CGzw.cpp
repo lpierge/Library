@@ -355,7 +355,7 @@ UINT CGzw::Compress(void)
 	// file ne avrebbe uno diverso, facendo fallire il controllo della password
 	// genera solo se e' stata specificata una password
 	if(m_Gzw.nPswLen > 0 && m_Gzw.nPswLen < GZW_PSW_MAX)
-		::GenerateUniqueRandomSalt(szUniqueRandomSalt,sizeof(szUniqueRandomSalt));
+		GenerateUniqueRandomSalt(szUniqueRandomSalt,sizeof(szUniqueRandomSalt));
 
 	// questo e' il flag che controlla l'append nel caso venga specificato piu' di un file di input
 	// al primo ciclo viene creato un .gz (in realta' .gzw) di output, mentre nei successivi, se ci sono piu' 
@@ -384,13 +384,13 @@ UINT CGzw::Compress(void)
 		while((lpszInFile = (LPSTR)findFile.FindEx(szPathName,szSkeleton,m_Gzw.bRecursiveSearch))!=NULL)
 		{
 			// pseudo-multitasking
-			::Yield();
+			Yield();
 
 			// controlla se il file soddisfa o meno le eventuali dimensioni minime/massime
 			if(m_Gzw.nMinsize > 0 || m_Gzw.nMaxsize > 0)
 			{
 				// ricava la dimensione del file
-				QWORD qwFileSize = ::GetFileSizeExtbyName(lpszInFile);
+				QWORD qwFileSize = GetFileSizeExtbyName(lpszInFile);
 
 				// se non soddisfa la dim.minima (e' piu' piccolo), lo scarta
 				if(m_Gzw.nMinsize > 0)
@@ -481,13 +481,13 @@ UINT CGzw::Compress(void)
 			}
 
 			// ricava data, ora e dimensione del file di input, salta al successivo x errore
-			if(::GetFileDateTime(szInputFile,&wFileDate,&wFileTime,&qwFileSize))
+			if(GetFileDateTime(szInputFile,&wFileDate,&wFileTime,&qwFileSize))
 				m_GzwHeader.stGzwHdr.qwFileSize = qwFileSize;
 			else
 			{
 				qwTotFileNameLen -= (QWORD)m_GzwHeader.stGzwHdr.nFileNameLen;
 				if(m_Gzw.nGzwOperation==GZW_MOVE)
-					::DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
+					DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
 				continue;
 			}
 
@@ -544,7 +544,7 @@ UINT CGzw::Compress(void)
 
 			// elimina il file di input per -m
 			if(m_Gzw.nGzwOperation==GZW_MOVE)
-				::DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
+				DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
 
 			// riapre il .gzw e registra nell'header GZW la dimensione compressa del file di input
 			FILE* pStream = NULL;
@@ -797,7 +797,7 @@ UINT CGzw::Uncompress(void)
 	while((lpszInFile = (LPSTR)findFile.FindEx(szPathName,szSkeleton,m_Gzw.bRecursiveSearch))!=NULL)
 	{
 		// pseudo-multitasking
-		::Yield();
+		Yield();
 
 		// imposta il nome del file .gzw di input da decomprimere
 		strcpyn(m_Gzw.szInputFile,lpszInFile,sizeof(m_Gzw.szInputFile));
@@ -836,7 +836,7 @@ UINT CGzw::UncompressFile(void)
 	m_Gzw.dwTotFiles = 0L;
 
 	// imposta la callback per le chiamate che effettuara' la zLib
-	gzsetcallback(CGzw::ProgressCallbackWrapper, this,GZW_CALLBACK_UNCOMPRESS);
+	gzsetcallback(CGzw::ProgressCallbackWrapper,this,GZW_CALLBACK_UNCOMPRESS);
 
 	// alloca ed inizializza la struttura per mantenere i valori durante il ciclo di chiamate
 	LPGZWHEADERDATA pstHdrData = NULL;
@@ -906,7 +906,7 @@ UINT CGzw::UncompressFile(void)
 	while((lpszTmpFile = (LPSTR)ExtractFile(pstHdrData))!=NULL)
 	{
 		// pseudo-multitasking
-		::Yield();
+		Yield();
 
 		// l'intero blocco seguente per decidere il nome del file di output da estrarre dal .gzw, ossia se usare/ricreare o meno il pathname relativo/assoluto
 		memset(szOutputFile,'\0',sizeof(szOutputFile));
@@ -921,7 +921,7 @@ UINT CGzw::UncompressFile(void)
 				::GetCurrentDirectory(_MAX_PATH,m_Gzw.szOutputFile);
 
 			// aggiunge lo \ finale alla directory di output
-			::EnsureBackslash(m_Gzw.szOutputFile,sizeof(m_Gzw.szOutputFile));
+			EnsureBackslash(m_Gzw.szOutputFile,sizeof(m_Gzw.szOutputFile));
 			
 			// copia la directory nel buffer
 			strncpy(szCurdir,m_Gzw.szOutputFile,sizeof(szCurdir));
@@ -1112,7 +1112,7 @@ done:
 
 	/* elimina il file .gzw per -x */
 	if(m_Gzw.nGzwOperation==GZW_EXTRACT)
-		::DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
+		DeleteFileToRecycleBin(NULL,szInputFile,FALSE,FALSE);
 
 	if(pstHdrData)
 	{
@@ -1161,7 +1161,7 @@ LPCSTR CGzw::ExtractFile(LPGZWHEADERDATA pstHdrData)
 extract: /* loop per scansione su pattern non soddisfatto per inclusioni/esclusioni */
 
 	// pseudo-multitasking
-	::Yield();
+	Yield();
 
 	/* controlla se e' arrivato alla fine del file .gzw */
 	if(pstHdrData->qwFilePointer >= pstHdrData->qwFileSize)
@@ -1480,7 +1480,7 @@ UINT CGzw::List(void)
 	while((lpszInFile = (LPSTR)findFile.FindEx(szPathName,szSkeleton,m_Gzw.bRecursiveSearch))!=NULL)
 	{
 		// pseudo-multitasking
-		::Yield();
+		Yield();
 
 		/* copia il nome del file espanso nella struttura */
 		strcpyn(m_Gzw.szInputFile,lpszInFile,sizeof(m_Gzw.szInputFile));
@@ -1609,7 +1609,7 @@ UINT CGzw::ListFile(void)
 	while(ExtractHeader(pstHdrData))
 	{
 		// pseudo-multitasking
-		::Yield();
+		Yield();
 
 		/* controlla se il file e' protetto da password, identico codice in UncompressFile */
 		if(m_GzwHeader.stGzwHdr.nPswLen > 0)
@@ -2386,7 +2386,7 @@ void CGzw::TmpClean(void)
 	while((lpszInFile = (LPSTR)findFile.FindEx(szTmpDir,"~gz*.tmp",FALSE))!=NULL)
 	{
 		// pseudo-multitasking
-		::Yield();
+		Yield();
 
 		// imposta il nome del file .gzw di input da decomprimere
 		::DeleteFile(lpszInFile);

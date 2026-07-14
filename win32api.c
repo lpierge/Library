@@ -3155,8 +3155,8 @@ int CompareFilebyDate(LPCSTR lpcszFileSrc,FILETIME* targetFileTime)
 	
 	Confronta data/ora dei files.
 
-	Restituisce TRUE se il file sorgente e' piu' recente o se il file di destinazione non esiste, 
-	FALSE altrimenti.
+	Restituisce TRUE se il file sorgente e' piu' RECENTE o se il file di destinazione NON ESISTE, 
+	FALSE altrimenti (piu' vecchio o stessa identica data).
 */
 BOOL CompareFileTimebyName(LPCSTR lpcszFileSrc,LPCSTR lpcszFileDst)
 {
@@ -3174,8 +3174,8 @@ BOOL CompareFileTimebyName(LPCSTR lpcszFileSrc,LPCSTR lpcszFileDst)
         return(TRUE);
     }
 
-    FILETIME srcFileTime;
-	FILETIME dstFileTime;
+    FILETIME srcFileTime = {0};
+	FILETIME dstFileTime = {0};
     GetFileTime(hSrcFile,NULL,NULL,&srcFileTime);
     GetFileTime(hDstFile,NULL,NULL,&dstFileTime);
 

@@ -999,12 +999,12 @@ BOOL CRegistry::RunFile(LPCSTR lpcszCustomExePath,LPCSTR lpcszInputFile)
 						bFound = TRUE;
 					}
 				}
-				RegCloseKey(hCmdKey);
+				::RegCloseKey(hCmdKey);
 			}
 			if(bFound)
 				break;
 		}
-		RegCloseKey(hRoot);
+		::RegCloseKey(hRoot);
 	}
 
 	// se ha trovato il template, sostituisce %1 con il file eseguibile
@@ -1088,8 +1088,8 @@ BOOL CRegistry::RunFile(LPCSTR lpcszCustomExePath,LPCSTR lpcszInputFile)
 						&si,
 						&pi))
 	{
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
+		::CloseHandle(pi.hProcess);
+		::CloseHandle(pi.hThread);
 		return(TRUE);
 	}
 #endif
