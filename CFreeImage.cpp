@@ -988,11 +988,13 @@ BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
 	if(!IsValid(__func__))
 		return(FALSE);
 
-	// determina prima di tutto il formato di destinazione basandosi sul file in cui sta salvando
-	FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(lpcszFileName);
+	// determina il formato di destinazione
+	char szExt[16] = {0};
+	snprintf(szExt,sizeof(szExt),".%s",lpcszFormat);
+	FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(szExt);
 	if(fif==FIF_UNKNOWN)
 	{
-		SetLastErrorDescriptionEx("%s(): unknown format: %s",__func__,lpcszFileName);
+		SetLastErrorDescriptionEx("%s(): unknown/unsupported format: %s",__func__,lpcszFormat);
 		return(FALSE);
 	}
 	else if(fif==FIF_AVIF)
@@ -1008,7 +1010,7 @@ BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
 
 		WORD bpp = FreeImage_GetBPP(m_pImage);
 
-		// ora controlla il formato di destinazione (fif), che e' quello che comanda le regole di compatibilita' dei bit
+		// converte (eventualmente) il sorgente a seconda della compatibilita' del formato di destinazione
 		switch(fif)
 		{
 			case FIF_BMP:
@@ -1020,7 +1022,7 @@ BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
 				break;
 
 			case FIF_JPEG:
-				if(bpp!=24 && bpp!=8)
+				if(bpp!=8 && bpp!=24)
 				{
 					pImageToSave = FreeImage_ConvertTo24Bits(m_pImage);
 					bMustFree = TRUE;
