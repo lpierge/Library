@@ -879,6 +879,8 @@ BOOL CFreeImage::Unload(void)
 
 	I formati supportati sono quelli definiti all'inizio nel costruttore.
 */
+//$ corretto lo svarione, controllava il formato DOPO e non PRIMA, verificare se tutto OK
+#if 0
 BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
 {
 	DWORD dwError = 0L;
@@ -976,6 +978,93 @@ BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
 
 	return(bResult);
 }
+#else
+BOOL CFreeImage::Save(LPCSTR lpcszFileName,LPCSTR lpcszFormat,DWORD dwFlags)
+{
+	DWORD dwError = 0L;
+	BOOL bResult = FALSE;
+
+	// controlla che l'oggetto immagine sia valido
+	if(!IsValid(__func__))
+		return(FALSE);
+
+	// determina prima di tutto il formato di destinazione basandosi sul file in cui sta salvando
+	FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(lpcszFileName);
+	if(fif==FIF_UNKNOWN)
+	{
+		SetLastErrorDescriptionEx("%s(): unknown format: %s",__func__,lpcszFileName);
+		return(FALSE);
+	}
+	else if(fif==FIF_AVIF)
+	{
+		SetLastErrorDescriptionEx("%s(): current version of FreeImageRe has an unbearable AVIF implementation, aborting",__func__);
+		return(FALSE);
+	}
+
+	__try {
+    
+		FIBITMAP* pImageToSave = m_pImage;
+		BOOL bMustFree = FALSE;
+
+		WORD bpp = FreeImage_GetBPP(m_pImage);
+
+		// ora controlla il formato di destinazione (fif), che e' quello che comanda le regole di compatibilita' dei bit
+		switch(fif)
+		{
+			case FIF_BMP:
+				if(bpp > 24)
+				{
+					pImageToSave = FreeImage_ConvertTo24Bits(m_pImage);
+					bMustFree = TRUE;
+				}
+				break;
+
+			case FIF_JPEG:
+				if(bpp!=24 && bpp!=8)
+				{
+					pImageToSave = FreeImage_ConvertTo24Bits(m_pImage);
+					bMustFree = TRUE;
+				}
+				dwFlags |= JPEG_QUALITYGOOD;
+				break;
+
+			case FIF_GIF:
+				if(bpp!=8)
+				{
+					// converte a 8-bit usando l'algoritmo di quantizzazione
+					pImageToSave = FreeImage_ColorQuantize(m_pImage,FIQ_WUQUANT);
+					bMustFree = TRUE;
+				}
+				break;
+
+			case FIF_PNG:
+				dwFlags |= PNG_Z_BEST_COMPRESSION;
+				break;
+
+			case FIF_WEBP:
+				break;
+		}
+
+		// salvataggio
+		bResult = FreeImage_Save(fif,pImageToSave,lpcszFileName,(int)dwFlags);
+		if(!bResult)
+			SetLastErrorDescriptionEx("%s(): failed",__func__);
+
+		// ripulisce se ha creato un buffer temporaneo
+		if(bMustFree && pImageToSave)
+			FreeImage_Unload(pImageToSave);
+	}
+	__except(dwError = GetExceptionCode(),EXCEPTION_EXECUTE_HANDLER) {
+
+		SetLastErrorDescriptionEx("%s(): an unexpected exception (0x%08X) has occurred while saving: %s",__func__,dwError,lpcszFileName);
+	}
+
+	if(bResult)
+		CImage::Flush(lpcszFileName);
+
+	return(bResult);
+}
+#endif
 
 /*
 	Stretch()

@@ -3119,21 +3119,35 @@ int CompareFileDateTime(WORD wFileAdate,WORD wFileAtime,WORD wFileBdate,WORD wFi
 
 /*
 	CompareFilebyDate()
+
+	Confronta la data del file con quella specificata, restituendo lo stesso valore
+	restituito da CompareFileTime():
+
+	-1	la data del file e' piu' vecchia rispetto alla data specificata
+	 0	la data del file e' uguale alla data specificata
+	 1	la data del file e' maggiore rispetto alla data specificata
 */
-BOOL CompareFilebyDate(LPCSTR lpcszFileSrc,FILETIME* targetFileTime)
+int CompareFilebyDate(LPCSTR lpcszFileSrc,FILETIME* targetFileTime)
 {
 	ASSERTEXPR(lpcszFileSrc);
 	ASSERTEXPR(targetFileTime);
 
+	// occhio: se non puo' aprire il file restituisce 0 (date uguali)
     HANDLE hSrcFile = CreateFile(lpcszFileSrc,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,0,NULL);
     if(hSrcFile==INVALID_HANDLE_VALUE)
-		return(FALSE);
+		return(0);
 
-	FILETIME srcFileTime;
-	GetFileTime(hSrcFile,NULL,NULL,&srcFileTime);
+	// occhio: se non puo' ricavare data/ora del file restituisce 0 (date uguali)
+	FILETIME srcFileTime = {0};
+	if(!GetFileTime(hSrcFile,NULL,NULL,&srcFileTime))
+	{
+		CloseHandle(hSrcFile);
+		return(0);
+	}
+
 	CloseHandle(hSrcFile);
 
-    return(CompareFileTime(&srcFileTime,targetFileTime) > 0);
+    return(CompareFileTime(&srcFileTime,targetFileTime));
 }
 
 /*
@@ -3490,12 +3504,14 @@ void ResetConsoleBuffer(void)
 
 	Reinizializza il buffer per la console con i valori specificati, assicurando la 
 	(ri)apparizione della barre di scrolling.
+
+	Restituisce 0 se riesce o il valore di GetLastError() altrimenti.
 */
-void InitConsoleGeometry(short nWidth,short nHeight)
+DWORD InitConsoleGeometry(UINT nWidth,UINT nHeight)
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	if(hConsole==INVALID_HANDLE_VALUE)
-		return;
+		return(ERROR_INVALID_HANDLE);
 
 	CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
 	if(GetConsoleScreenBufferInfo(hConsole,&csbi))
@@ -3506,24 +3522,30 @@ void InitConsoleGeometry(short nWidth,short nHeight)
 
 		// se la finestra corrente fosse piu' grande del nuovo buffer che si vuole impostare,
 		// SetConsoleScreenBufferSize() fallirebbe, quindi rimpicciolisce prima la finestra temporaneamente
-		short nCurrentConsoleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-		short nCurrentConsoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+		short nCurrentConsoleWidth  = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
+		short nCurrentConsoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top  + 1;
 
 		if(nCurrentConsoleWidth > newSize.X || nCurrentConsoleHeight > newSize.Y)
 		{
-			SMALL_RECT rectTemporaneo;
-			rectTemporaneo.Left		= 0;
-			rectTemporaneo.Top		= 0;
-			rectTemporaneo.Right	= (nCurrentConsoleWidth > newSize.X) ? newSize.X - 1 : nCurrentConsoleWidth - 1;
-			rectTemporaneo.Bottom	= (nCurrentConsoleHeight > newSize.Y) ? newSize.Y - 1 : nCurrentConsoleHeight - 1;
+			SMALL_RECT rcTemp;
+			rcTemp.Left		= 0;
+			rcTemp.Top		= 0;
+			rcTemp.Right	= (nCurrentConsoleWidth  > newSize.X) ? newSize.X - 1 : nCurrentConsoleWidth  - 1;
+			rcTemp.Bottom	= (nCurrentConsoleHeight > newSize.Y) ? newSize.Y - 1 : nCurrentConsoleHeight - 1;
             
-			SetConsoleWindowInfo(hConsole,TRUE,&rectTemporaneo);
-	}
+			if(!SetConsoleWindowInfo(hConsole,TRUE,&rcTemp))
+				return(GetLastError());
+		}
 
-	// imposta il buffer desiderato: se X e' maggiore della larghezza della
-	// finestra, la barra di scorrimento orizzontale riappare all'istante
-	SetConsoleScreenBufferSize(hConsole, newSize);
+		// imposta il buffer desiderato: se X e' maggiore della larghezza della
+		// finestra, la barra di scorrimento orizzontale riappare all'istante
+		if(!SetConsoleScreenBufferSize(hConsole,newSize))
+			return(GetLastError());
 	}
+	else
+		return(GetLastError());
+
+	return(0L);
 }
 
 /*
