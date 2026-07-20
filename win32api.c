@@ -19,11 +19,15 @@
 #include <stdarg.h>
 #include <string.h>
 #include "strings.h"
+#include <ctype.h>
+#include <wchar.h>
+#include <wctype.h>
 #include <time.h>
 #include <limits.h>
 #include "datetime.h"
 #include "window.h"
 #include "win32api.h"
+#include <winreg.h>
 #include <shellapi.h>
 #include <shlwapi.h>
 
@@ -1068,7 +1072,7 @@ UINT FormatResourceStringEx(LPSTR lpszString,UINT nSize,UINT nID,...)
 	Conclusione, nel file .rc mettere (o duplicare, se gia' esiste come risorsa ufficiale) la risorsa che si dovra'
 	poi estrarre con lo specificatore RCDATA ed estrarla poi usando il'id RT_RCDATA.
 */
-BOOL ExtractResource(UINT nID,LPCSTR lpcszResName,LPCSTR lpcszOutputFile)
+BOOL ExtractResource(UINT nID,LPCSTR lpcszResName,LPCSTR lpcszOutputFile,DWORD* pdwError)
 {
 	ASSERTEXPR(nID > 0);
 	ASSERTEXPR(lpcszResName);
@@ -1093,13 +1097,22 @@ BOOL ExtractResource(UINT nID,LPCSTR lpcszResName,LPCSTR lpcszOutputFile)
 				{
 					DWORD dwToWrite = SizeofResource(NULL,hRes);
 					DWORD dwWritten = 0L;
-					WriteFile(handle,lpVoid,(UINT)dwToWrite,&dwWritten,NULL);
+					if(!WriteFile(handle,lpVoid,(UINT)dwToWrite,&dwWritten,NULL))
+						*pdwError = ::GetLastError();
 					CloseHandle(handle);
 					bExtracted = (dwToWrite==dwWritten);
 				}
+				else
+					*pdwError = ::GetLastError();
 			}
+			else
+				*pdwError = ::GetLastError();
 		}
+		else
+			*pdwError = ::GetLastError();
 	}
+	else
+		*pdwError = ::GetLastError();
 
 	return(bExtracted);
 }
@@ -1709,21 +1722,25 @@ BOOL FileExists(LPCSTR lpcszFileName)
 
 	Restituisce TRUE se il file esiste e riesce a ricavare gli attributi, FALSE altrimenti.
 */
-BOOL DoesFileExist(LPCSTR lpcszFileName,LPDWORD pdwLastError)
+BOOL DoesFileExist(LPCSTR lpcszFileName, LPDWORD pdwLastError)
 {
 	ASSERTEXPR(lpcszFileName);
 	ASSERTEXPR(pdwLastError);
 
 	DWORD dwAttributes = GetFileAttributes(lpcszFileName);
-    *pdwLastError = 0L;
+	*pdwLastError = 0L;
 
-    if(dwAttributes==INVALID_FILE_ATTRIBUTES)
+	// se la chiamata fallisce, il file o il percorso non esistono (o non si hanno i permessi)
+	if(dwAttributes == INVALID_FILE_ATTRIBUTES)
 	{
 		*pdwLastError = GetLastError();
-        return(FALSE);
-    }
+		return(FALSE);
+	}
 
-	return((dwAttributes & FILE_ATTRIBUTE_ARCHIVE)!=0L);
+	// il path esiste: restituisce TRUE solo se non e' una directory
+	// il check anteriore era una svista clamorosa, non tutti i files hanno l'attributo A
+	//return((dwAttributes & FILE_ATTRIBUTE_ARCHIVE)!=0L);
+	return((dwAttributes & FILE_ATTRIBUTE_DIRECTORY)==0L);
 }
 
 /*
@@ -3434,6 +3451,33 @@ wchar_t *wcsistr(const wchar_t *haystack,const wchar_t *needle)
 }
 
 /*
+	wcscatn()
+
+	Concatena la stringa in base alla dimensione del buffer, lo spazio eventualmente gia'
+	occupato e controllando che il totale non vada in overflow.
+	Come dimensione del buffer va passata la dimensione reale, quella della dichiarazione.
+*/
+wchar_t* wcscatn(wchar_t* buffer,const wchar_t* str,size_t buffer_size)
+{
+	if(!buffer || !str || buffer_size==0)
+		return(buffer);
+
+	size_t len = wcslen(buffer);
+
+	// controlla se c'e' spazio residuo nel buffer per ospitare almeno un carattere ed il terminatore \0
+	if(len + 1 < buffer_size)
+	{
+		// calcolo sicuro dello spazio residuo (senza rischi di overflow per numeri negativi)
+		size_t avail = buffer_size - len - 1;
+
+		// concatena limitando allo spazio rimasto
+		wcsncat(buffer,str,avail);
+	}
+
+	return(buffer);
+}
+
+/*
 	GetLineFromStdin()
 
 	Legge una riga da stdin, rimuove il carattere di newline ('\n') e svuota il buffer di input se necessario.
@@ -3760,26 +3804,10 @@ void RestoreConsoleWindow(void)
 */
 void CloseConsoleWindow(void)
 {
-    DWORD consoleProcessId = 0L;
-    HWND  hConsoleWnd = NULL;
-
-    /* ricava l'id del processo della console, valido se la console e' il processo padre
-    o se esiste un solo processo di consola, altrimenti usare GetConsoleProcessList() */
-    GetWindowThreadProcessId(GetConsoleWindow(),&consoleProcessId);
-
-    /* ricave l'handle della console */
-    hConsoleWnd = GetConsoleWindow();
-
-    if(hConsoleWnd!=NULL)
-    {
-        /* chiude la finestra della console enviando un WM_CLOSE, la soluzione piu' pulita
-        se SendMessage() non fosse sufficente (coda dei msg piena, ritardi, etc.) si
-        potrebbero tagliare le gambe al processo direttamente tramite la chiamata a:
-
-        TerminateProcess(OpenProcess(PROCESS_TERMINATE, FALSE,consoleProcessId),0); */
-        SendMessage(hConsoleWnd,WM_CLOSE,0,0);
-		PeekAndPump();
-    }
+    /* ricave l'handle della console e chiude la finestra della console enviando un WM_CLOSE (la soluzione piu' pulita) */
+	HWND hConsoleWnd = GetConsoleWindow();
+	if (hConsoleWnd != NULL)
+		PostMessage(hConsoleWnd, WM_CLOSE, 0, 0);
 }
 
 /*

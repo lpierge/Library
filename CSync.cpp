@@ -18,8 +18,8 @@
 #include "CSync.h"
 
 #include "traceexpr.h"
-//#define _TRACE_FLAG			_TRFLAG_TRACEOUTPUT // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
-#define _TRACE_FLAG			_TRFLAG_NOTRACE // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
+#define _TRACE_FLAG			_TRFLAG_TRACEOUTPUT // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
+//#define _TRACE_FLAG			_TRFLAG_NOTRACE // opzioni: _TRFLAG_NOTRACE, _TRFLAG_TRACEFILE, _TRFLAG_TRACECONSOLE, _TRFLAG_TRACEOUTPUT, _TRFLAG_TRACEBREAKPOINT
 #define _TRACE_FLAG_INFO	_TRACE_FLAG
 #define _TRACE_FLAG_WARN	_TRACE_FLAG
 #define _TRACE_FLAG_ERR		_TRACE_FLAG
@@ -134,8 +134,8 @@ BOOL CSyncThreads::Lock(int nTimeout/* = 0 */)
 
 	TRACEEXPR((_TRACE_FLAG_INFO,__NOFILE__,__NOLINE__,(char*)"CSyncThreads::Lock(): [%s] lock %s\n",m_szName[0]!='\0' ? m_szName : "NONAME",bLocked ? "succeed" : "FAILED"));
 
-	// solo se in modo DEBUG: se il lock fallisce, chiede conferma e riprova in extremis, ricorsivamente
 #ifdef _CSYNC_VERBOSE
+	// se il lock fallisce, chiede conferma e riprova in extremis, ricorsivamente
 	if(!bLocked)
 	{
 		char buffer[512] = {0};
@@ -244,11 +244,9 @@ BOOL CSyncProcesses::Lock(int nTimeout/* = 0 */)
 	if(m_szName[0]=='\0')
 	{
 		TRACEEXPR((_TRACE_FLAG_ERR,__NOFILE__,__NOLINE__,(char*)"CSyncProcesses::Lock(): invalid mutex name\n"));
-
 #ifdef _CSYNC_VERBOSE
 		::MessageBox(NULL,"Invalid mutex name.","CSyncProcesses::Lock()",MB_OK|MB_ICONERROR|MB_TASKMODAL|MB_SETFOREGROUND|MB_TOPMOST);
 #endif
-
 		return(bLocked);
 	}
 
@@ -256,11 +254,9 @@ BOOL CSyncProcesses::Lock(int nTimeout/* = 0 */)
 	if(!m_hHandle)
 	{
 		TRACEEXPR((_TRACE_FLAG_ERR,__NOFILE__,__NOLINE__,(char*)"CSyncProcesses::Lock(): [%s] invalid mutex handle\n",m_szName));
-
 #ifdef _CSYNC_VERBOSE
 		::MessageBox(NULL,"Invalid mutex handle.","CSyncProcesses::Lock()",MB_OK|MB_ICONERROR|MB_TASKMODAL|MB_SETFOREGROUND|MB_TOPMOST);
 #endif
-
 		return(bLocked);
 	}
 
@@ -277,6 +273,7 @@ BOOL CSyncProcesses::Lock(int nTimeout/* = 0 */)
 		if(nMsTimeoutIncrement < SYNC_MS_TIMEOUT_INCREMENT)
 			nMsTimeoutIncrement = SYNC_MS_TIMEOUT_INCREMENT;
 	}
+	TRACEEXPR((_TRACE_FLAG_ERR,__NOFILE__,__NOLINE__,(char*)"CSyncProcesses::Lock(): timeout %d\n",m_nTimeout));
 
 	// acquisisce il blocco sul mutex tramite la WaitForSingleObject():
 	// "The single-object wait functions return when the state of the specified object is signaled"
@@ -322,8 +319,8 @@ BOOL CSyncProcesses::Lock(int nTimeout/* = 0 */)
 		}
 	} while(!bLocked);
 
-	// solo se in modo DEBUG: se il lock fallisce, chiede conferma e riprova in extremis, ricorsivamente
 #ifdef _CSYNC_VERBOSE
+	// se il lock fallisce, chiede conferma e riprova in extremis, ricorsivamente
 	if(!bLocked)
 	{
 		char buffer[512];
