@@ -669,12 +669,14 @@ bool CBase::Create(const char* pTableName,CBASE_TABLE* pTable/*=NULL*/,CBASE_IND
 				m_pDatabase->table.index[i].name      = pIdx[i].name;
 				m_pDatabase->table.index[i].fieldname = pTable[n].field;
 				m_pDatabase->table.index[i].fieldnum  = n + 1; // il + 1 serve per saltare il campo relativo alla chiave primaria
+				m_pDatabase->table.index[i].ignorecase= pIdx[i].ignorecase;
 			}
 			else
 			{
 				m_pDatabase->table.index[i].name      = pTable[0].field;
 				m_pDatabase->table.index[i].fieldname = pTable[0].field;
 				m_pDatabase->table.index[i].fieldnum  = 0;
+				m_pDatabase->table.index[i].ignorecase= 0;
 			}
 		}
 	}

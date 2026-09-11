@@ -12,8 +12,8 @@
 #include <string.h>
 #include "strings.h"
 #include "window.h"
+#include "win32api.h"
 #include "CDateTime.h"
-#include "CFindFile.h"
 #include "CBinFile.h"
 
 #include "traceexpr.h"
@@ -104,7 +104,7 @@ BOOL CBinFile::Open(LPCSTR	lpcszFileName,
 						Se il file specificato non esiste, la funzione ha esito negativo e l'ultimo codice di errore e' impostato su ERROR_FILE_NOT_FOUND (2).
 						Il processo chiamante deve aprire il file con il bit GENERIC_WRITE impostato come parte del parametro dwDesiredAccess.
 */
-BOOL CBinFile::OpenEx(LPCSTR	lpcszFileName,
+BOOL CBinFile::OpenEx(	LPCSTR	lpcszFileName,
 						DWORD	dwMode				/* = OPEN_EXISTING */,
 						DWORD	dwAccessMode		/* = GENERIC_READ|GENERIC_WRITE */,
 						DWORD	dwShareMode			/* = FILE_SHARE */
@@ -179,9 +179,12 @@ BOOL CBinFile::Create(	LPCSTR	lpcszFileName,
 		strcpyn(szDirectory,lpcszFileName,sizeof(szDirectory));
 		if((p = strrchr(szDirectory,'\\'))!=NULL)
 		{
-			if(*(p+1)) p++;
-			if(*p) *p = '\0';
-			CFindFile::CreatePathName(szDirectory,sizeof(szDirectory));
+			DWORD dwError = 0L;
+			if(*(p+1))
+				p++;
+			if(*p)
+				*p = '\0';
+			CreatePathname(szDirectory,&dwError);
 		}
 
 		strcpyn(m_szFileName,lpcszFileName,sizeof(m_szFileName));
@@ -334,7 +337,8 @@ QWORD CBinFileEx::WriteEx(LPCVOID lpcBuffer,QWORD qwToWrite)
 	Seek()
 
 	Posiziona il puntatore all'interno del file.
-	Specificare l'offset ed il punto (FILE_BEGIN/CURRENT/END) a partire dal quale posizionare il puntatore.
+	Specificare l'offset ed il punto (FILE_BEGIN, FILE_CURRENT, FILE_END) a partire dal quale posizionare il
+	puntatore.
 	Restituisce FILE_EOF per errore.
 
 	Nota: La funzione SetFilePointer() restituisce 0xFFFFFFFF in due casi: quando c'e' un errore reale (es. 

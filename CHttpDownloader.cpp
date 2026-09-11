@@ -9,6 +9,7 @@
 //$ TODO: alcune parti (tipo gestione cookies) andrebbero riviste una volta per tutte
 
 #include "pragma.h"
+#include "env.h"
 #include <stdio.h>
 #include <string.h>
 #include "strings.h"
@@ -51,6 +52,80 @@ void DummyLogMessageCallback(DWORD dwFlags,LPCSTR pszHostDomain,LPCSTR pszBaseDi
 }
 
 /*
+	ThisLogMessageCallback()
+
+	Default per funzione per trascrizione su file del log relativo alle sessioni HTTP per il download.
+	Sostituisce la DummyLogMessageCallback() di cui sopra.
+	Il file di log de default (http.log) viene creato nella struttura di directory di default a partire
+	dalla directory base (dir base + "log", "cookies"), impostata con SetBaseDirectory().
+	Per usare questa funzione di default:
+	- invocare il costruttore con CHttpDownloader httpDownloader(NULL,...);
+	- chiamare il membro SetBaseDirectory() con la directory base (ad es. la directory di installazione del chiamante)
+	- NON usare il membro SetLogCallback()
+	
+	In input: <nome del dominio/host>, <directory di base>, <boolean per output console>, <formato/testo>
+*/
+void ThisLogMessageCallback(DWORD dwFlags,LPCSTR pszHostDomain,LPCSTR pszBaseDir,LPCSTR pszFormat,...)
+{
+	DWORD dwError = 0L;
+	static BOOL bFirstCallEver = TRUE;
+	static char szLogDir[_MAX_PATH+1] =	{0};
+	static char szLogFile[_MAX_PATH+1] = {0};
+	
+	// imposta la directory base con quella ricevuta in input ed il nome del file di log
+	char szBaseDir[_MAX_PATH+1] = {0};
+	strcpyn(szBaseDir,pszBaseDir,sizeof(szBaseDir));
+	RemoveBackslash(szBaseDir);
+	snprintf(szLogDir,sizeof(szLogDir),"%s\\log",szBaseDir);
+	snprintf(szLogFile,sizeof(szLogFile),"%s\\http.log",szLogDir);
+
+	// timestamp
+	time_t rawtime;
+	struct tm timeinfo;
+	char szTimestamp[64] = {0};
+	time(&rawtime);
+	localtime_s(&timeinfo,&rawtime);
+	strftime(szTimestamp,sizeof(szTimestamp)-1,"[%Y-%m-%d %H:%M:%S]",&timeinfo);
+
+	// modalita', append o overwrite
+	const char* openmode;
+	if(bFirstCallEver)
+	{
+		openmode = dwFlags & HTTP_FLAG_OVERWRITE ? "w" : "a";
+		bFirstCallEver = FALSE;
+	}
+	else
+		openmode = "a";
+
+	// apre il file di log scrivendo a inizio linea dominio e timestamp
+	FILE* fp = fopen(szLogFile,openmode);
+	if(!fp)
+	{
+		::MessageBeep(MB_ICONERROR);
+		printf("\nerror: unable to create the log file: %s (%d)\n",szLogFile,errno);
+		return;
+	}
+	char szDomain[_MAX_PATH+1] = {""};
+	if(pszHostDomain)
+		snprintf(szDomain,sizeof(szDomain)," (%s)",pszHostDomain);
+	if(pszHostDomain)
+		fprintf(fp,"%s%s ",szTimestamp,szDomain);
+	else
+		fprintf(fp,"\n");
+
+	// trascrive il messaggio
+	va_list args;
+	va_start(args,pszFormat);
+	vfprintf(fp,pszFormat,args);
+	fflush(fp);
+
+	va_end(args);
+	
+	// apre/chiude ad ogni chiamata
+	fclose(fp);
+}
+
+/*
 	CHttpDownloader()
 */
 CHttpDownloader::CHttpDownloader(LogMessageCallback pfnCallback/* = NULL */,DWORD dwFlags/* = 0 */)
@@ -78,7 +153,7 @@ CHttpDownloader::CHttpDownloader(LogMessageCallback pfnCallback/* = NULL */,DWOR
 	if(pfnCallback)
 		m_pfnLogCallback = pfnCallback;
 	else
-		m_pfnLogCallback = DummyLogMessageCallback;
+		m_pfnLogCallback = ThisLogMessageCallback; //DummyLogMessageCallback;
 	m_pfnDatabaseCallback = NULL;
 	m_pfnNameRulerCallback = NULL;
 	m_pNameRulerContext = NULL;

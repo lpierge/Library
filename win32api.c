@@ -696,6 +696,24 @@ BOOL GetFriendlyWindowsName(LPSTR lpszVersion,UINT nVersionSize)
 }
 
 /*
+	IsLaunchedFromCommandPrompt()
+
+	Verifica se il lancio del programma e' avvenuto via command prompt o tramite doppio click
+	sull icona via Explorer.
+*/
+BOOL IsLaunchedFromCommandPrompt(void)
+{
+	DWORD dwProcessList[2] = {0};
+
+	// chiede il numero di processi associati alla console corrente
+	DWORD dwCount = GetConsoleProcessList(dwProcessList,2);
+    
+	// se il conteggio e' > 1, ci sono piu' processi nella console (es. cmd.exe + il programma)
+	// se e' 1, la console e' stata appena creata automamente (doppio click da Explorer)
+	return(dwCount > 1L);
+}
+
+/*
 	GetThisModuleFileName()
 
 	Recupera il nome del file eseguibile corrente, considerando come eseguibile solo quanto termina con ".exe".
@@ -834,7 +852,6 @@ BOOL WritePrivateProfileInt(LPCSTR lpcszSectioneName,LPCSTR lpcszKeyName,int nVa
 {
 	ASSERTEXPR(lpcszSectioneName);
 	ASSERTEXPR(lpcszKeyName);
-	ASSERTEXPR(nValue > 0);
 	ASSERTEXPR(lpcszIniFile);
 
 	char szBuffer[16] = {0};
@@ -1366,6 +1383,8 @@ BOOL PeekAndPump(void)
 
 /*
 	GetDiskInfo()
+
+	Ricava le info relativo al drive.
 */
 BOOL GetDiskInfo(LPCSTR lpcszRootPath,DISKINFO* pDiskInfo)
 {
@@ -1435,6 +1454,8 @@ BOOL GetDiskInfo(LPCSTR lpcszRootPath,DISKINFO* pDiskInfo)
 
 /*
 	GetDiskType()
+
+	Ricava il tipo di drive.
 */
 LPCSTR GetDiskType(DWORD dwType)
 {
@@ -1703,14 +1724,17 @@ BOOL FileExists(LPCSTR lpcszFileName)
 {
 	ASSERTEXPR(lpcszFileName);
 
+	DWORD dwError = 0L;
 	BOOL bFileExists = FALSE;
 	HANDLE hHandle = INVALID_HANDLE_VALUE;
-	
+
 	if((hHandle = CreateFile(lpcszFileName,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,NULL))!=INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(hHandle);
 		bFileExists = TRUE;
 	}
+	else
+		dwError = GetLastError();
 	
 	return(bFileExists);
 }
@@ -1721,8 +1745,21 @@ BOOL FileExists(LPCSTR lpcszFileName)
 	Controlla se il file esiste (ricavando gli attributi).
 
 	Restituisce TRUE se il file esiste e riesce a ricavare gli attributi, FALSE altrimenti.
+
+	Piu' in generale, tenere presente il seguente frammento come riferimento per su come
+	usare GetFileAttributes():
+	DWORD dwAttr = ::GetFileAttributes(szPattern);
+	if(dwAttr!=INVALID_FILE_ATTRIBUTES) // l'elemento esiste fisicamente su disco, controlla cosa e':
+	{
+		if (dwAttr & FILE_ATTRIBUTE_DIRECTORY)
+			printf("E' una directory.\n");
+		else
+			printf("E' un file.\n");
+	}
+	else // l'elemento NON esiste, non e' accessibile, OPPURE contiene wildcards (*, ?)
+		printf("Percorso inesistente o pattern di ricerca.\n");
 */
-BOOL DoesFileExist(LPCSTR lpcszFileName, LPDWORD pdwLastError)
+BOOL DoesFileExist(LPCSTR lpcszFileName,LPDWORD pdwLastError)
 {
 	ASSERTEXPR(lpcszFileName);
 	ASSERTEXPR(pdwLastError);
@@ -2523,6 +2560,8 @@ LPSTR StripFileFromPath(LPCSTR lpcszPathName,LPSTR lpszPath,UINT nSize,BOOL bRem
 	char* p = (char*)strrchr(lpszPath,'\\');
 	if(p)
 		*((bRemoveBackslash ? p : p+1)) = '\0';
+	else
+		memset(lpszPath,'\0',nSize);
 
 	return(lpszPath);
 }
@@ -3326,7 +3365,6 @@ void SetForegroundWindowEx(HWND hWnd,BOOL bInvalidate)
 #endif
 
 	/* forza un refresh della finestra */
-	ShowWindow(hWnd,SW_RESTORE);
 	SetForegroundWindow(hWnd);
 	SetFocus(hWnd);
 	if(bInvalidate)
@@ -3408,6 +3446,9 @@ LPSTR WideCharToAnsi(const wchar_t* pwszWide,UINT codePage/* CP_ACP, CP_UTF8 */)
 */
 int wcscount(LPCWSTR szString,LPCWSTR szChar)
 {
+	ASSERTEXPR(szString);
+	ASSERTEXPR(szChar);
+
 	int count = 0;
 	LPCWSTR p = szString;
 	while((p = wcsstr(p,szChar))!=NULL)
@@ -3425,6 +3466,8 @@ int wcscount(LPCWSTR szString,LPCWSTR szChar)
 */
 wchar_t *wcsistr(const wchar_t *haystack,const wchar_t *needle)
 {
+	ASSERTEXPR(haystack);
+
 	/* se needle e' vuoto, restituisce haystack (come fa wcsstr) */
 	if(*needle==L'\0')
 		return((wchar_t *)haystack);
@@ -3459,6 +3502,10 @@ wchar_t *wcsistr(const wchar_t *haystack,const wchar_t *needle)
 */
 wchar_t* wcscatn(wchar_t* buffer,const wchar_t* str,size_t buffer_size)
 {
+	ASSERTEXPR(buffer);
+	ASSERTEXPR(str);
+	ASSERTEXPR(buffer_size > 0);
+
 	if(!buffer || !str || buffer_size==0)
 		return(buffer);
 
@@ -3561,35 +3608,98 @@ DWORD InitConsoleGeometry(UINT nWidth,UINT nHeight)
 	if(GetConsoleScreenBufferInfo(hConsole,&csbi))
 	{
 		COORD newSize = {0};
-		newSize.X = nWidth;
-		newSize.Y = nHeight;
+		newSize.X = (SHORT)nWidth;
+		newSize.Y = (SHORT)nHeight;
 
 		// se la finestra corrente fosse piu' grande del nuovo buffer che si vuole impostare,
 		// SetConsoleScreenBufferSize() fallirebbe, quindi rimpicciolisce prima la finestra temporaneamente
 		short nCurrentConsoleWidth  = csbi.srWindow.Right  - csbi.srWindow.Left + 1;
 		short nCurrentConsoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top  + 1;
 
+		// ridimensiona temporaneamente la finestra se il nuovo buffer e' più piccolo
 		if(nCurrentConsoleWidth > newSize.X || nCurrentConsoleHeight > newSize.Y)
 		{
 			SMALL_RECT rcTemp;
-			rcTemp.Left		= 0;
-			rcTemp.Top		= 0;
-			rcTemp.Right	= (nCurrentConsoleWidth  > newSize.X) ? newSize.X - 1 : nCurrentConsoleWidth  - 1;
-			rcTemp.Bottom	= (nCurrentConsoleHeight > newSize.Y) ? newSize.Y - 1 : nCurrentConsoleHeight - 1;
+			rcTemp.Left   = 0;
+			rcTemp.Top    = 0;
+			rcTemp.Right  = (nCurrentConsoleWidth  > newSize.X) ? newSize.X - 1 : nCurrentConsoleWidth  - 1;
+			rcTemp.Bottom = (nCurrentConsoleHeight > newSize.Y) ? newSize.Y - 1 : nCurrentConsoleHeight - 1;
             
 			if(!SetConsoleWindowInfo(hConsole,TRUE,&rcTemp))
 				return(GetLastError());
 		}
 
-		// imposta il buffer desiderato: se X e' maggiore della larghezza della
-		// finestra, la barra di scorrimento orizzontale riappare all'istante
+		// imposta la dimensione totale del buffer
 		if(!SetConsoleScreenBufferSize(hConsole,newSize))
 			return(GetLastError());
+
+		// aggiustamento finale: assicura che la finestra mostri la parte desiderata del buffer
+		// rilegge le info aggiornate del buffer
+		if(GetConsoleScreenBufferInfo(hConsole,&csbi))
+		{
+			SMALL_RECT rcWindow;
+            
+			// mantiene la larghezza/altezza visibile originale della finestra (o la massima possibile)
+			SHORT windowWidth  = (nCurrentConsoleWidth < newSize.X)  ? nCurrentConsoleWidth  : newSize.X;
+			SHORT windowHeight = (nCurrentConsoleHeight < newSize.Y) ? nCurrentConsoleHeight : newSize.Y;
+
+			rcWindow.Left   = 0;
+			rcWindow.Top    = 0;
+			rcWindow.Right  = windowWidth - 1;
+			rcWindow.Bottom = windowHeight - 1;
+
+			if(!SetConsoleWindowInfo(hConsole,TRUE,&rcWindow))
+				return(GetLastError());
+		}
 	}
 	else
+	{
 		return(GetLastError());
+	}
 
 	return(0L);
+}
+
+/*
+	ScrollConsoleToBottom()
+
+	Posiziona verticalmente alla fine, rendendo visibile il prompt.
+*/
+void ScrollConsoleToBottom(void)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
+
+	// svuota i buffer standard del C per assicurarsi che il cursore Win32 sia aggiornato all'ultima posizione reale
+	fflush(stdout);
+
+	if(GetConsoleScreenBufferInfo(hConsole,&csbi))
+	{
+		SHORT windowHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+        
+		// il trucco: aggiunge 1 riga (o piu') di "padding" sotto il cursore
+		SHORT padding = 2; 
+		SHORT targetBottom = csbi.dwCursorPosition.Y + padding;
+
+		// si assicura di non "sfondare" il limite matematico del buffer
+		if(targetBottom >= csbi.dwSize.Y)
+			targetBottom = csbi.dwSize.Y - 1;
+
+		SMALL_RECT rc;
+		rc.Left   = csbi.srWindow.Left;
+		rc.Right  = csbi.srWindow.Right;
+		rc.Bottom = targetBottom;
+		rc.Top    = rc.Bottom - windowHeight + 1;
+
+		// se l'output e' stato corto ed il Top calcolato va in negativo, significa che non c'e' bisogno di scorrere nulla
+		if(rc.Top < 0)
+		{
+			rc.Top = 0;
+			rc.Bottom = windowHeight - 1;
+		}
+
+		SetConsoleWindowInfo(hConsole,TRUE,&rc);
+	}
 }
 
 /*
@@ -3611,16 +3721,17 @@ ANSWER ConsolePromptYesOrNo(void)
     WORD wKey = 0;
     BOOL bContinue = TRUE;
     BOOL bYes = FALSE;
+    BOOL bCancel = FALSE;
 
-	/* si assicura la visibilita' */
-	ShowWindow(hConsole,SW_RESTORE);
+	/* si assicura il focus */
+	::SetForegroundWindow(hConsole);
 
     /* svuota il buffer della tastiera, necessario per ReadConsoleInput() */
     FlushConsoleInputBuffer(hConsoleInput);
 
     /* posiziona il cursore */
-    GetConsoleScreenBufferInfo(hConsoleOutput,&csbi);
-    SetConsoleCursorPosition(hConsoleOutput,csbi.dwCursorPosition);
+	GetConsoleScreenBufferInfo(hConsoleOutput,&csbi);
+	SetConsoleCursorPosition(hConsoleOutput,csbi.dwCursorPosition);
 
 	/* aspetta che si verifichino eventi:
     PeekConsoleInput() legge gli eventi senza eliminarli dal buffer di input
@@ -3645,18 +3756,26 @@ ANSWER ConsolePromptYesOrNo(void)
                     char pressedChar = (char)toupper(inputBuffer[i].Event.KeyEvent.uChar.AsciiChar);
                     
 					/* controlla il tasto premuto */
-					if(pressedChar == 'Y')
+					if(pressedChar=='Y')
 					{
                         printf("y\n");
                         bYes = TRUE;
                         bContinue = FALSE;
                         break;
                     }
-					else if(pressedChar == 'N')
+					else if(pressedChar=='N')
 					{
                         printf("n\n");
                         bYes = FALSE;
                         bContinue = FALSE;
+                        break;
+                    }
+					else if(pressedChar=='C')
+					{
+                        printf("n\n");
+                        bYes = FALSE;
+                        bContinue = FALSE;
+						bCancel = TRUE;
                         break;
                     }
 					else
@@ -3673,15 +3792,17 @@ ANSWER ConsolePromptYesOrNo(void)
 		o se non esce per 'break' (es. il tasto premuto non era 'y' o 'n' e suono il bip) */
     }
 
-    return(bYes ? YES : NO);
+    return(bYes ? YES : (bCancel ? CANCEL : NO));
 }
 
 /*
     ConsolePromptEnter()
 
-	Idem come sopra, pero' senza prompt ed attesa per tasto Enter.
+	Idem come sopra, pero' senza prompt ed attesa per tasto Enter/Esc.
+
+	Restituisce TRUE se esce per Enter, FALSE se per Esc.
  */
-void ConsolePromptEnter(void)
+BOOL ConsolePromptEnter(void)
 {
 	HWND hConsole = GetConsoleWindow();
 	HANDLE hConsoleOutput = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -3691,10 +3812,10 @@ void ConsolePromptEnter(void)
     DWORD dwNumEventsRead = 0L;
     WORD wKey = 0;
     BOOL bContinue = TRUE;
-    BOOL bYes = FALSE;
+    BOOL bRet = TRUE;
 
 	/* si assicura la visibilita' */
-	ShowWindow(hConsole,SW_RESTORE);
+	SetForegroundWindowEx(hConsole,FALSE);
 
     /* svuota il buffer della tastiera, necessario per ReadConsoleInput() */
     FlushConsoleInputBuffer(hConsoleInput);
@@ -3707,18 +3828,15 @@ void ConsolePromptEnter(void)
     PeekConsoleInput() legge gli eventi senza eliminarli dal buffer di input
     GetNumberOfConsoleInputEvents() controlla se si sono verificati eventi
     ReadConsoleInput() rimane in attesa che si verifichi un evento */
-    printf("-- press Enter --");
+    printf("-- press Enter/Esc --");
 	while(bContinue)
     {
-		if(ReadConsoleInput(	hConsoleInput,
-								inputBuffer,
-								128, /* NON usare sizeof(), NON e' char!!! */
-								&dwNumEventsRead))
+		if(ReadConsoleInput(hConsoleInput,inputBuffer,128/* NON usare sizeof(), NON e' char! */,&dwNumEventsRead))
 		{
 			for(int i=0; i < (int)dwNumEventsRead; i++)
 			{
 				/* considera solo gli eventi di tasto premuto */
-                if(inputBuffer[i].EventType == KEY_EVENT && inputBuffer[i].Event.KeyEvent.bKeyDown)
+                if(inputBuffer[i].EventType==KEY_EVENT && inputBuffer[i].Event.KeyEvent.bKeyDown)
 				{
 					/* codice virtuale del tasto */
 					wKey = inputBuffer[i].Event.KeyEvent.wVirtualKeyCode;
@@ -3726,6 +3844,14 @@ void ConsolePromptEnter(void)
                     /* esce per Enter */
                     if(wKey==VK_RETURN)
 					{
+						bRet = TRUE;
+                        bContinue = FALSE;
+                        break;
+                    }
+					/* interrompe per Esc */
+                    else if(wKey==VK_ESCAPE)
+					{
+						bRet = FALSE;
                         bContinue = FALSE;
                         break;
                     }
@@ -3734,6 +3860,8 @@ void ConsolePromptEnter(void)
         }
     }
     printf("\n");
+
+	return(bRet);
 }
 
 /*
@@ -3837,11 +3965,37 @@ int GetConsoleWidth(void)
 			int visibleWidth = csbi.srWindow.Right - csbi.srWindow.Left + 1;
 			int visibleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 
-			nConsoleWidth = (csbi.srWindow.Right - csbi.srWindow.Left + 1) - 13;
+			nConsoleWidth = (csbi.srWindow.Right - csbi.srWindow.Left + 1);
 		}
 	}
 	
 	return(nConsoleWidth);
+}
+
+/*
+    GetConsoleHeight()
+
+    Calcola l'altezza della finestra della console.
+
+    Restituisce l'altezza o 0 per errore.
+*/
+int GetConsoleHeight(void)
+{
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi = {0};
+	int nConsoleHeight = 0;
+
+	if(hConsole!=INVALID_HANDLE_VALUE)
+	{
+		if(GetConsoleScreenBufferInfo(hConsole,&csbi))
+		{
+			/* csbi.dwSize.Y contiene l'altezza del buffer dello schermo in righe di caratteri */
+			/* csbi.srWindow.Bottom - csbi.srWindow.Top + 1 -> altezza della finestra visibile */
+			nConsoleHeight = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+		}
+	}
+    
+	return(nConsoleHeight);
 }
 
 /*

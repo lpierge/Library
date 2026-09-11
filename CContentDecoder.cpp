@@ -4,6 +4,8 @@
 	all'invio dell'header Accept-encoding.
 	Supporta tre formati base: gzip, deflate e br; gzip e deflate vengono gestiti qui, 
 	br con il codice della DLL relativa: https://github.com/lpierge/BrotliDLL
+	Notare che inviare un Accept-Encoding con il valore "identity" equivale a chiedere
+	espressamente che l'oggetto venga mandato in chiaro, senza compressione.
 	Luca Piergentili, Settembre '25
 
 	La sigla "br" sta per "brotli", il formato di compressione sviluppato da Google. Il codice 

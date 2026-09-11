@@ -71,34 +71,39 @@ typedef struct GZW_ERRORS GZWERRORS;
 	mantenere allineato con gli enum (a base 0) in CGzw.h
 */
 static const GZWERRORS aGzwErrors[] = {
-	{GZWE_UNKNOWN_ERROR		,"unknown error"},
-	{GZWE_UNKNOWN_OPTION	,"unknown option"},
-	{GZWE_WRONG_PARAMETERS	,"wrong parameters"},
-	{GZWE_COMPRESS_ERROR	,"compression error"},
-	{GZWE_UNCOMPRESS_ERROR	,"uncompress error"},
-	{GZWE_LIST_ERROR		,"list error"},
-	{GZWE_VIEW_ERROR		,"view error"},
-	{GZWE_INVALID_FILENAME	,"invalid filename"},
-	{GZWE_NOSUCHFILE		,"no such file"},
-	{GZWE_INVALID_FORMAT	,"invalid format"},
-	{GZWE_WRONG_PASSWORD	,"wrong password"},
-	{GZWE_MALLOC_ERROR		,"allocation memory error"},
-	{GZWE_SEARCH_ERROR		,"search error"},
-	{GZWE_SCRIPT_ERROR		,"script error"},
-	{GZWE_CHECK_ERROR		,"check error"},
-	{GZWE_OPEN_ERROR		,"open error"},
-	{GZWE_CREATE_ERROR		,"create error"},
-	{GZWE_CLOSE_ERROR		,"close error"},
-	{GZWE_SEEK_ERROR		,"seek error"},
-	{GZWE_READ_ERROR		,"read error"},
-	{GZWE_WRITE_ERROR		,"write error"},
-	{GZWE_MKDIR_ERROR		,"unable to create directory"},
-	{GZWE_UPDATE_ERROR		,"unable to update data"},
-	{GZWE_UNDERSIZE			,"undersize"},
-	{GZWE_FILE_EXISTS		,"file already exists"},
-	{GZW_HALTED				,"halted (execution stopped)"},
-	{GZW_DONE				,"done"},
-	{GZW_SUCCESS			,"success"}
+	{GZWE_UNKNOWN_ERROR				,"unknown error"},
+	{GZWE_UNKNOWN_OPTION			,"unknown option"},
+	{GZWE_WRONG_PARAMETERS			,"wrong parameters"},
+	{GZWE_INVALID_INPUT_ARGUMENT	,"invalid input argument"},
+	{GZWE_INVALID_OUTPUT_ARGUMENT	,"invalid output argument"},
+	{GZWE_INVALID_FILENAME			,"invalid filename"},
+	{GZWE_INVALID_FORMAT			,"invalid format"},
+
+	{GZWE_NOSUCHFILE				,"no such file"},
+	{GZWE_FILE_EXISTS				,"file already exists"},
+	{GZWE_WRONG_PASSWORD			,"wrong password"},
+
+	{GZWE_COMPRESS_ERROR			,"compression error"},
+	{GZWE_UNCOMPRESS_ERROR			,"uncompress error"},
+	{GZWE_LIST_ERROR				,"list error"},
+	{GZWE_VIEW_ERROR				,"view error"},
+
+	{GZWE_MALLOC_ERROR				,"allocation memory error"},
+	{GZWE_SEARCH_ERROR				,"search error"},
+	{GZWE_SCRIPT_ERROR				,"script error"},
+	{GZWE_CHECK_ERROR				,"check error"},
+	{GZWE_OPEN_ERROR				,"open error"},
+	{GZWE_CREATE_ERROR				,"create error"},
+	{GZWE_CLOSE_ERROR				,"close error"},
+	{GZWE_SEEK_ERROR				,"seek error"},
+	{GZWE_READ_ERROR				,"read error"},
+	{GZWE_WRITE_ERROR				,"write error"},
+	{GZWE_MKDIR_ERROR				,"unable to create directory"},
+	{GZWE_UPDATE_ERROR				,"unable to update data"},
+
+	{GZW_HALTED						,"halted (execution stopped)"},
+	{GZW_DONE						,"done"},
+	{GZW_SUCCESS					,"success"}
 };
 
 /*
@@ -312,11 +317,8 @@ UINT CGzw::Compress(void)
 	// imposta la callback per le chiamate che effettuara' la zLib
 	gzsetcallback(CGzw::ProgressCallbackWrapper,this,GZW_CALLBACK_COMPRESS);
 
-	if(!CheckInputOutput(GZW_COMPRESS))
-	{
-		nRet = GZWE_WRONG_PARAMETERS;
+	if((nRet = CheckInputOutput(GZW_COMPRESS))!=GZW_SUCCESS)
 		return(nRet);
-	}
 
 	// verifica ed eventualmente crea la directory di output
 	if(!EnsureOutDirExists(m_Gzw.szOutputFile,TRUE))
@@ -776,11 +778,8 @@ UINT CGzw::Uncompress(void)
 	char szSkeleton[_MAX_PATH+1] = {0};
 	CFindFile findFile;
 
-	if(!CheckInputOutput(GZW_UNCOMPRESS))
-	{
-		nRet = GZWE_WRONG_PARAMETERS;
+	if((nRet = CheckInputOutput(GZW_UNCOMPRESS))!=GZW_SUCCESS)
 		return(nRet);
-	}
 
 	// verifica ed eventualmente crea la directory di output
 	if(!EnsureOutDirExists(m_Gzw.szOutputFile,FALSE))
@@ -1466,11 +1465,8 @@ UINT CGzw::List(void)
 	char	szSkeleton[_MAX_PATH+1] = {0};
 	CFindFile findFile;
 
-	if(!CheckInputOutput(GZW_LIST))
-	{
-		nRet = GZWE_WRONG_PARAMETERS;
+	if((nRet = CheckInputOutput(GZW_LIST))!=GZW_SUCCESS)
 		return(nRet);
-	}
 		
 	// espande il pattern e lista i files di input
 	// non usa una callback per CFindFile perche' qui deve filtrare il contenuto dei files di input,
@@ -1967,31 +1963,33 @@ BOOL CGzw::CheckGzHeader(const unsigned char* buffer)
 	input: file/pattern=SI
 	output: file=SI, directory/pattern=NO
 */
-BOOL CGzw::CheckInputOutput(GZW_OPERATION gzwop)
+GZWE_ERROR_CODE CGzw::CheckInputOutput(GZW_OPERATION gzwop)
 {
 	DWORD dwAttributes = 0L;
 	
-    // pattern input sempre permessi
-	BOOL bInputWildcards = (strchr(m_Gzw.szInputFile,'*')!=NULL || strchr(m_Gzw.szInputFile,'?')!=NULL);
+    // in input pattern sempre permessi
+	BOOL bInputWildcards  = (strchr(m_Gzw.szInputFile,'*')!=NULL  || strchr(m_Gzw.szInputFile,'?')!=NULL);
 	BOOL bOutputWildcards = (strchr(m_Gzw.szOutputFile,'*')!=NULL || strchr(m_Gzw.szOutputFile,'?')!=NULL);
 
     // l'output non puo' mai contenere un pattern
 	if(bOutputWildcards)
-        return(FALSE);
+        return(GZWE_INVALID_OUTPUT_ARGUMENT);
 
 	if(gzwop==GZW_COMPRESS || gzwop==GZW_MOVE)
 	{
 		const char* pInput = NULL;
 
 		// deve essere passato input ed output
-		if(!*m_Gzw.szInputFile || !*m_Gzw.szOutputFile)
-			return(FALSE);
+		if(!*m_Gzw.szInputFile)
+			return(GZWE_INVALID_INPUT_ARGUMENT);
+		if(!*m_Gzw.szOutputFile)
+			return(GZWE_INVALID_OUTPUT_ARGUMENT);
 
 		// se viene specificato un file script, controlla la sintassi: la chiocciola deve essere
 		// il primo carattere, come in '@C:\TMP\SCRIPT.TXT', la sintassi: 'C:\TMP\@SCRIPT.TXT' e'
 		// errata
 		if((pInput = strchr(m_Gzw.szInputFile,'@')) && m_Gzw.szInputFile[0]!='@')
-			return(FALSE);
+			return(GZWE_INVALID_INPUT_ARGUMENT);
 		if(pInput)
 			pInput++;
 		else
@@ -2014,14 +2012,14 @@ BOOL CGzw::CheckInputOutput(GZW_OPERATION gzwop)
 			// se l'oggetto esiste controlla che non sia una directory
 			// se e' una directory l'input NON e' valido
 			if(dwAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				return(FALSE);
+				return(GZWE_INVALID_INPUT_ARGUMENT);
 		}
         
 done_input:
 
 		// output: file = SI, directory/pattern = NO
 		if(bOutputWildcards)
-			return(FALSE);
+			return(GZWE_INVALID_OUTPUT_ARGUMENT);
 		else
 		{
 			dwAttributes = GetFileAttributes(m_Gzw.szOutputFile);
@@ -2033,14 +2031,14 @@ done_input:
 				goto done_output;
 
 			// se l'oggetto esiste controlla che non sia una directory
-			// se e' una directory l'input NON e' valido
+			// se e' una directory l'output NON e' valido
 			if(dwAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				return(FALSE);
+				return(GZWE_INVALID_OUTPUT_ARGUMENT);
 		}
 
 done_output:
 
-		return(TRUE);
+		return(GZW_SUCCESS);
 	}
 	else if(gzwop==GZW_UNCOMPRESS || gzwop==GZW_EXTRACT)
 	{
@@ -2050,7 +2048,7 @@ done_output:
             // input deve essere un file esistente e non directory
             dwAttributes = GetFileAttributes(m_Gzw.szInputFile);
             if(dwAttributes==INVALID_FILE_ATTRIBUTES || (dwAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                return(FALSE);
+				return(GZWE_INVALID_INPUT_ARGUMENT);
         }
         
         // output: directory = SI, file/pattern = NO
@@ -2060,7 +2058,7 @@ done_output:
 		{
             // se esiste e NON e' una directory, allora e' un file, errore
 			if(!(dwAttributes & FILE_ATTRIBUTE_DIRECTORY))
-				return(FALSE);
+				return(GZWE_INVALID_OUTPUT_ARGUMENT);
 		}
 		// se non esiste (INVALID_FILE_ATTRIBUTES), e' un nome di directory valido 
 		// che deve essere creato dal chiamante
@@ -2073,7 +2071,7 @@ done_output:
 			// input deve essere un file esistente e non una directory
             dwAttributes = GetFileAttributes(m_Gzw.szInputFile);
             if(dwAttributes==INVALID_FILE_ATTRIBUTES || (dwAttributes & FILE_ATTRIBUTE_DIRECTORY))
-                return(FALSE);
+				return(GZWE_INVALID_INPUT_ARGUMENT);
         }
         
 		// output (opzionale): file = SI, directory/pattern = NO
@@ -2082,16 +2080,16 @@ done_output:
 		{
 			dwAttributes = GetFileAttributes(m_Gzw.szOutputFile);
 			if(dwAttributes!=INVALID_FILE_ATTRIBUTES && (dwAttributes & FILE_ATTRIBUTE_DIRECTORY))
-				return(FALSE);
+				return(GZWE_INVALID_OUTPUT_ARGUMENT);
 		}
 	}
     else
     {
         // azione sconosciuta
-        return(FALSE);
+        return(GZWE_WRONG_PARAMETERS);
     }
 
-	return(TRUE);
+	return(GZW_SUCCESS);
 }
 
 /*

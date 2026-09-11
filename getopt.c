@@ -380,6 +380,8 @@ int getopt(	char		cFlag,				/* carattere da usare per indicare l'opzione ('/' o 
 							/* str */
 							case string_type:
 								strcpyn(opts[i].uValue.szValue,arg,STR_MAX_VALUE+1);
+								if(!strempty(opts[i].uValue.szValue))
+									stroutrim(opts[i].uValue.szValue);
 								break;
 						}
 					}
@@ -554,7 +556,8 @@ int getopt( char        cFlag,              /* carattere da usare per indicare l
 								case float_type:		opts[j].uValue.fValue  = (float)atof(szArgVal);		break;
 								case double_type:		opts[j].uValue.dValue  = atof(szArgVal);			break;
 								case string_type:		strcpyn(opts[j].uValue.szValue,szArgVal,STR_MAX_VALUE+1);
-														strrtrim(opts[j].uValue.szValue);
+														if(!strempty(opts[j].uValue.szValue))
+															stroutrim(opts[j].uValue.szValue);
 														break;
 							}
 						}

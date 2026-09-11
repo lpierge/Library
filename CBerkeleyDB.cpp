@@ -106,6 +106,75 @@ static const DB_ERROR db_error[] = {
 };
 
 /*
+	BtCompareCaseInsensitive()
+
+	Definisce la funzione usata internamente dalla libreria BerkeleyDB per il confronto delle chiavi.
+
+	Il campo bt_compare di DB_INFO (o la set_bt_compare() nelle versioni successive alla 2.7.7) permette impostare
+	una funzione custom per il confronto delle chiavi.
+
+	Notare che bt_compare/set_bt_compare() ed il flag per il softseek gestiscono due aspetti completamente distinti
+	del database:
+
+	1) bt_compare/set_bt_compare() stabilisce la regola di confronto (l'alfabeto del DB):
+	Definisce come due chiavi vengono messe a confronto per ordinare l'albero. Sostituendo la funzione predefinita 
+	con una case-insensitive, si sta dicendo al database che le lettere "A" ed "a" occupano la stessa posizione nel
+	ordinamento.
+
+	2) DB_SET / DB_SET_RANGE stabiliscono il tipo di ricerca (Seek):
+	Controllano il comportamento della ricerca a runtime, indipendentemente da come sono ordinate le chiavi:
+
+	- Ricerca esatta (SetSoftSeek(false) -> DB_SET):
+	Il database cerchera' unicamente una chiave uguale a quella richiesta. Se la callback e' case-insensitive, allora
+	cercando "mar" il database trovera' "MAR", "Mar" o "mar", ma se nel DB esistono solo "mario" o "mary", la Seek()
+	fallira' restituendo DB_NOTFOUND.
+
+	- Softseek (SetSoftSeek(true) -> DB_SET_RANGE):
+	Il database cerchera' la prima chiave maggiore o uguale a quella richiesta. Cercando "mar", si posizionera' su 
+	"MAR", oppure su "mario" o "mary" se "mar" esatto non esiste.
+
+	Impostando la callback case-insensitive prima dell'apertura del DB, la Seek() continuera' a fare ricerche esatte 
+	quando SetSoftSeek e' impostato su false, con la sola differenza che l'uguaglianza non fara' piu' distinzione tra
+	maiuscole e minuscole.
+
+	In parole povere, e' come il comportamento della shell di MS-DOS/Windows con i nomi dei files: vengono conservati
+	maiuscole e minuscole nei nomi dei files stabiliti dall'utente, ma che poi quando si chiede alla shell di cercare 
+	un file, questa non fa differenza tra maiuscole e minuscole.
+
+	Tradotto al database:
+
+	Si conserva il testo originale (case-preserving): quando si inserisce una chiave come "Marion", la Berkeley DB 
+	memorizza nei dati grezzi del buffer esattamente la stringa con le maiuscole e minuscole originali, senza alterare
+	i dati.
+
+	Ignora la differenza in ricerca (case-insensitive): quando la callback impostata con bt_compare/set_bt_compare 
+	confronta due chiavi, dice al B-Tree che "MARION", "Marion" e "marion" sono equivalenti.
+
+	Con DB_SET (ricerca esatta): si cerca "marion" ed il DB trova con successo il record memorizzato come "Marion".
+
+	Con DB_SET_RANGE (softseek): si cerca "mar" ed il cursore si posiziona sul primo elemento utile, intercettando
+	indifferentemente "MARION", "Mary" o "mario".
+*/
+static int BtCompareCaseInsensitive(const DBT *dbt1,const DBT *dbt2)
+{
+	const char *s1 = (const char *)dbt1->data;
+	const char *s2 = (const char *)dbt2->data;
+	size_t min_len = (dbt1->size < dbt2->size) ? dbt1->size : dbt2->size;
+
+	int res = _strnicmp(s1,s2,min_len);
+	if(res!=0)
+		return(res);
+
+	if(dbt1->size < dbt2->size)
+		return(-1);
+
+	if(dbt1->size > dbt2->size)
+		return(1);
+
+	return(0);
+}
+
+/*
 	CBerkeleyDB()
 */
 CBerkeleyDB::CBerkeleyDB()
@@ -294,25 +363,32 @@ int CBerkeleyDB::Open(u_int32_t flags/*=DB_CREATE*/)
 		memset(m_pIdxHandleArray, '\0', sizeof(DB*)  * m_Database.table.totindex);
 		memset(m_pIdxCursorArray, '\0', sizeof(DBC*) * m_Database.table.totindex);
 
-		// apre (o crea) gli indici secondari (possono contenere chiavi duplicate)
-		//
-		// tabella:		chiave_primaria(unica) + campo1/campo2/campo3/...
-		//				chiave_primaria(unica) + campo1/campo2/campo3/...
-		//				chiave_primaria(unica) + campo1/campo2/campo3/...
-		//				etc.
-		//
-		// indice campo1:campo1(puo' essere duplicato) + chiave_primaria(unica)
-		//				campo1(puo' essere duplicato) + chiave_primaria(unica)
-		//				campo1(puo' essere duplicato) + chiave_primaria(unica)
-		//				etc.
-		//		
+		/*
+		apre (o crea) gli indici secondari (possono contenere chiavi duplicate)
+
+		tabella:		chiave_primaria(unica) + campo1/campo2/campo3/...
+						chiave_primaria(unica) + campo1/campo2/campo3/...
+						chiave_primaria(unica) + campo1/campo2/campo3/...
+						etc.
+		
+		indice campo1:	campo1(puo' essere duplicato) + chiave_primaria(unica)
+						campo1(puo' essere duplicato) + chiave_primaria(unica)
+						campo1(puo' essere duplicato) + chiave_primaria(unica)
+						etc.
+
+		notare che per gli indici (SOLO per i campi di testo) puo' essere impostato il flag 
+		per la ricerca case-insensitive, da non confondere con il flag per la softseek, vedi
+		le note in BtCompareCaseInsensitive()
+		*/		
 		for(int i = 0; i < m_Database.table.totindex; i++)
 		{
-			// imposta il flag per le chiavi duplicate
+			// imposta i flags di controllo per la tabella
 			memset(&m_dbinfo,'\0',sizeof(DB_INFO));
-			m_dbinfo.flags = DB_DUP|DB_DUPSORT;
-			m_dbinfo.db_cachesize = 32 * 1024 * 1024; // 32 MB di cache interna per BerkeleyDB
-			
+			m_dbinfo.flags = DB_DUP|DB_DUPSORT;			// flag per le chiavi duplicate
+			m_dbinfo.db_cachesize = 32 * 1024 * 1024;	// dimensione (32 MB) della cache interna di BerkeleyDB
+			if(m_Database.table.index[i].ignorecase==1)	// flag per ricerca case-insensitive, vedi note in BtCompareCaseInsensitive()
+				m_dbinfo.bt_compare = BtCompareCaseInsensitive;
+
 			// apre (o crea) il file per l'indice
 			if((nRet = db_open(	m_Database.table.index[i].filename,DB_BTREE,flags,0664,
 								pEnv, // modifica: usa pEnv, che puntera' a NULL o s_pDbEnv, a seconda di TRANSACTION_ENABLED

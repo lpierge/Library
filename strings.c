@@ -220,6 +220,24 @@ char *strsep(char **str,const char *delim)
 }
 
 /*
+	strchk()
+
+	Controlla se la stringa <str> contiene uno o piu' caratteri della sottostringa <chrs>.
+	Restituisce 1 se la stringa contiene almeno uno dei caratteri della sottostringa, 0 altrimenti.
+*/
+int strchk(const char* str,const char* chrs)
+{
+	while(*chrs)
+	{
+		if(strchr(str,*chrs))
+			return(1);
+		chrs++;
+	}
+
+	return(0);
+}
+
+/*
 	strchkc()
 
 	Controlla se la stringa <str> contiene solo i caratteri inclusi nella sottostringa <chrs>.
@@ -232,9 +250,9 @@ int strchkc(const char* str,const char* chrs)
 
 	for(int i=0; i < len_str; i++)
 		if(!strchr(chrs,str[i]))
-			return(FALSE);
+			return(0);
 
-	return(TRUE);
+	return(1);
 }
 
 /*
@@ -654,6 +672,28 @@ int strcmpni(const char* s1,const char* s2,size_t n)
 }
 
 /*
+	stricmpn()
+
+	Confronta, da sinistra a destra, due stringhe per <n> caratteri, ignorando 
+	la differenza tra maiuscole/minuscole.
+
+	Restituisce:
+	true o false a seconda se la stringa inizia o meno con la sottostringa
+*/
+bool stricmpn(const char *str,const char *prefix)
+{
+#ifdef _MSC_VER
+    #define strncasecmp _strnicmp
+#endif
+
+	if(!str || !prefix)
+		return(false);
+
+	return(strncasecmp(str,prefix,strlen(prefix))==0);
+	/*return(strncmp(str,prefix,strlen(prefix))==0);*/
+}
+
+/*
 	strchrn()
 
 	Cerca un carattere in una stringa di dimensione specificata.
@@ -713,11 +753,15 @@ const char* strstrn(const char* string,const char* substring,size_t n)
 	strchgc()
 
 	Cambia, nella stringa, un carattere con un altro.
+	Se il carattere per il cambio e' NULL ('\0'), allora i caratteri della stringa invece 
+	di essere sostituiti vengono eliminati.
+	Parametri:
 	str	-> stringa da modificare
 	c	-> carattere da cambiare
-	chr	-> carattere per sostituzione
+	chr	-> carattere per sostituzione (passare '\0' per eliminazione)
 	Restituisce il numero di cambi effettuati.
 */
+#if 0
 int strchgc(char* str,char c,char chr)
 {
 	if(!str)
@@ -737,16 +781,51 @@ int strchgc(char* str,char c,char chr)
 
 	return(changed);
 }
+#else
+int strchgc(char* str,char c,char chr)
+{
+	if(!str)
+		return(0);
+
+	int changed = 0;
+	char* write = str;
+	const char* read = str;
+
+	/* scorrimento a doppio puntatore */
+	while(*read)
+	{
+		if(*read==c)
+		{
+			changed++;
+			if(chr!='\0')
+				*write++ = chr; /* sostituzione normale, se invece fosse '\0' verrebbe eliminato */
+		}
+		else
+		{
+			*write++ = *read; /* copia il carattere originale */
+		}
+		read++;
+	}
+
+	*write = '\0';
+
+	return(changed);
+}
+#endif
 
 /*
 	strchgs()
 
 	Cambia, nella stringa, tutti i caratteri della sottostringa, se trovati, con il carattere specificato.
+	Se il carattere specificato e' NULL ('\0'), allora i caratteri della stringa invece di essere sostituiti
+	vengono eliminati.
+	Parametri:
 	str	-> stringa da modificare
 	s	-> sottostringa contenente i caratteri da cambiare
-	chr	-> carattere per sostituzione
+	chr	-> carattere per sostituzione (passare '\0' per eliminazione)
 	Restituisce il numero di cambi effettuati.
 */
+#if 0
 int strchgs(char* str,const char* s,char chr)
 {
 	if(!str || !s)
@@ -771,6 +850,51 @@ int strchgs(char* str,const char* s,char chr)
 
 	return(changed);
 }
+#else
+int strchgs(char* str, const char* s, char chr)
+{
+	if(!str || !s)
+		return(0);
+
+	int changed = 0;
+	char* write = str;
+	const char* read = str;
+
+	/* scorrimento a doppio puntatore */
+	while(*read)
+	{
+		const char* p = s;
+		int match = 0;
+
+		while(*p)
+		{
+			if(*read==*p)
+			{
+				match = 1;
+				break;
+			}
+			p++;
+		}
+
+		if(match)
+		{
+			changed++;
+			if(chr!='\0')
+				*write++ = chr; /* sostituzione, quando invece '\0' lo elimina non scrivendo nulla */
+		}
+		else
+		{
+			*write++ = *read; /* copia il carattere */
+		}
+
+		read++;
+	}
+
+	*write = '\0';
+
+	return(changed);
+}
+#endif
 
 /*
 	subst()
@@ -932,16 +1056,17 @@ int substr(const char* str, const char* substring, const char* replace, char* bu
     /* cerca la sottostringa nell'originale */
     p = strstr(str, substring);
 
-    if (p != NULL)
+    if(p!=NULL)
     {
         /* calcola quanto spazio occupa la parte iniziale (prima della sottostringa) */
         size_t prefixLen = (size_t)(p - str);
 
         /* se il buffer non puo' contenere nemmeno il prefisso, esce */
-        if (prefixLen >= size) prefixLen = size - 1;
+        if(prefixLen >= size)
+			prefixLen = size - 1;
 
         /* copia la parte iniziale nel buffer */
-        strncpy(buffer, str, prefixLen);
+        strncpy(buffer,str,prefixLen);
         buffer[prefixLen] = '\0';
 
         /* aggiunge la stringa di rimpiazzo (se "" non aggiunge nulla, elimina) */
@@ -956,7 +1081,7 @@ int substr(const char* str, const char* substring, const char* replace, char* bu
     }
 
     /* se non trova nulla, copia la stringa originale cosi' com'e' */
-    strcpyn(buffer, str, size);
+    strcpyn(buffer,str,size);
 
     return(0);
 }
@@ -1027,65 +1152,138 @@ char* substrn(const char* string,size_t pos,size_t len,const char* replace)
 	strtokargs()
 
 	Suddivide in tokens come con strtok(), pero' con la possibilita' di gestire tokens che includano il
-	separatore stesso, sempre e quando vengano circoscritti con un "inclusore".
-	Funzionamento e dinamica esattamente uguali a strtok(), includendo il modo in cui va chiamata.
+	separatore stesso, sempre e quando vengano circoscritti con un inclusore.
+	Il funzionamento e la dinamica della chiamata sono esattamente uguali a strtok().
+	Notare che le sottostringhe delimitate dall'inclusore vengono restituite con l'inclusore incluso.
 
 	Esempi:
 	<"esci fuori" disse giocando a nascondino>
 	la frase puo' essere tokenizzata usando lo spazio e la citazione "esci fuori" viene considerata come
 	token unico grazie all'uso del doppio apice come inclusore
 	<-d"C:\Users\lpier\Documents\Luca\Pictures\2D\Artisti\Otto Schmidt\Black Cat" -r>
-	la linea di comando, contenente nomi file che includono spazi, viene scomposta in due token in base allo
-	spazio grazie  all'uso del doppio apice come inclusore
+	la linea di comando, contenente nomi file che includono spazi, viene suddivisa in due token in base
+	allo spazio grazie all'uso del doppio apice come inclusore
 */
 char* strtokargs(char* str,const char separator,const char inclusor)
 {
-	// statica per preservare lo stato tra le chiamate successive
+	/* rimedia la cappellata di passare separatore ed inclusore uguali o nulli */
+	if(separator==inclusor || separator=='\0' || inclusor=='\0')
+		return(NULL);
+
+	/* statica per preservare lo stato tra le chiamate successive */
 	static char* next_token = NULL;
 
-	// se viene passata una nuova stringa, reinizializza il puntatore
+	/* se viene passata una nuova stringa, reinizializza il puntatore */
 	if(str!=NULL)
 		next_token = str;
 
-	// se arriva alla fine della stringa nelle chiamate precedenti
+	/* se arriva alla fine della stringa nelle chiamate precedenti */
 	if(next_token==NULL || *next_token=='\0')
 		return(NULL);
 
-	// prima fase: salta i separatori iniziali
-	// all'inizio sara' sicuramente fuori dagli inclusori
+	/* prima fase: salta i separatori iniziali
+	   all'inizio sara' sicuramente fuori dagli inclusori */
 	while(*next_token && *next_token==separator)
 		next_token++;
 
-	// se dopo aver saltato i separatori arriva a fine stringa, significa che non ci sono piu' token
+	/* se dopo aver saltato i separatori arriva a fine stringa, significa che non ci sono piu' token */
 	if(*next_token=='\0')
+	{
+		next_token = NULL; /* resetta per le prossime chiamate */
 		return(NULL);
+	}
 
-	// ha trovato l'inizio del token
+	/* ha trovato l'inizio del token */
 	char* token_start = next_token;
 	int inside_inclusor = 0;
 
-	// seconda fase: scansione del token
+	/* seconda fase: scansione del token */
 	while(*next_token)
 	{
-		// se trova un inclusore, inverte lo stato
+		/* se trova un inclusore, inverte lo stato */
 		if(*next_token==inclusor)
 		{
 			inside_inclusor = !inside_inclusor;
 		}
-		// se trova un separatore e sta fuori dagli inclusori, il token e' finito
+		/* se trova un separatore e sta fuori dagli inclusori, il token e' finito */
 		else if(*next_token==separator && !inside_inclusor)
 		{
-			*next_token = '\0'; // spezza la stringa in-place
-			next_token++;       // posiziona il puntatore per la prossima chiamata
+			*next_token = '\0'; /* spezza la stringa in-place */
+			next_token++;       /* posiziona il puntatore per la prossima chiamata */
 			return(token_start);
 		}
 
 		next_token++;
 	}
 
-	// se arriva qui, significa che e' arrivato a fine stringa ('\0')
-	// gestisce automaticamente anche il caso dell'inclusore non bilanciato,
-	// restituendo tutto quello che e' rimasto, fino alla fine
+	/* se arriva qui, significa che e' arrivato a fine stringa ('\0')
+	   gestisce automaticamente anche il caso dell'inclusore non bilanciato,
+	   restituendo tutto quello che e' rimasto, fino alla fine */
+	next_token = NULL; // resetta per le prossime chiamate
+	return(token_start);
+}
+
+/*
+	strtokargs_r()
+	
+	Versione sicura (rientrante) di strtokargs(), divide in token e rimuove i caratteri inclusori in-place.
+
+	Esempio:
+
+	char* context = NULL;
+	char* token = strtokargs_r(string,' ','"',&context);
+	while(token!=NULL)
+	{
+		printf("token: %s\n",token);
+		token = strtokargs_r(NULL,' ','"',&context);
+	}
+*/
+char* strtokargs_r(char* str,const char separator,const char inclusor,char** context)
+{
+	/* se riceve una nuova stringa, reinizializza il contesto */
+	if(str!=NULL)
+		*context = str;
+
+	if(*context==NULL || **context=='\0')
+		return(NULL);
+
+	/* salta i separatori iniziali */
+	while(**context && **context==separator)
+		(*context)++;
+
+	if(**context=='\0')
+		return(NULL);
+
+	char* token_start = *context;
+	char* write_ptr = token_start; /* puntatore per compattare la stringa in-place */
+	int inside_inclusor = 0;
+
+	/* scansione del token */
+	while(**context)
+	{
+		if(**context==inclusor)
+		{
+			/* trovato l'inclusore, cambia lo stato e lo salta senza scriverlo */
+			inside_inclusor = !inside_inclusor;
+			(*context)++;
+			continue;
+		}
+		else if(**context==separator && !inside_inclusor)
+		{
+			/* trovato il separatore fuori dagli inclusori, chiude il token */
+			*write_ptr = '\0'; 
+			(*context)++; /* avanza il contesto oltre il separatore */
+			return(token_start);
+		}
+
+		/* copia il carattere utile (compatta la stringa per rimuovere l'inclusore) */
+		*write_ptr = **context;
+		write_ptr++;
+		(*context)++;
+	}
+
+	/* e' arrivato fine stringa, chiude l'ultimo token processato */
+	*write_ptr = '\0'; 
 	return(token_start);
 }
 
